@@ -1,0 +1,1 @@
+drop table if exists hairdresser_work_patterns;
