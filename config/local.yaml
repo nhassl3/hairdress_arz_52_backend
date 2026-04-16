@@ -1,0 +1,30 @@
+environment: local
+
+server:
+  grpc_port: ":50051"
+  http_port: ":8080"
+
+db:
+  host: localhost
+  port: 5432
+  ssl_mode: disable
+
+# TODO: create redis db for storage sms code verifications
+redis:
+  addr: localhost:6380
+  db: 0
+  ttl:
+    sms_code_verification: 5m
+
+auth:
+  access_token_ttl: 15m
+  refresh_token_ttl: 168h
+
+# TODO: create minio storage for storage some avatars of hairdressers
+minio:
+  endpoint: "localhost:9000"
+  bucket: "hairdress-avatars"
+  use_ssl: false
+
+log:
+  level: debug
