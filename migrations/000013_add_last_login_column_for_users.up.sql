@@ -1,0 +1,1 @@
+ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS last_login timestamptz not null default now();
