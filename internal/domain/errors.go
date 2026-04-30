@@ -1,0 +1,18 @@
+package domain
+
+import "errors"
+
+var (
+	ErrUserNotFound          = errors.New("user not found")
+	ErrUsernameAlreadyExists = errors.New("username already exists")
+	ErrPhoneAlreadyExists    = errors.New("phone already exists")
+	ErrInvalidCode           = errors.New("invalid code")
+	ErrCodeExpired           = errors.New("code expired")
+	ErrTooManyAttempts       = errors.New("too many attempts")
+	ErrSmsRateLimited        = errors.New("sms rate limited")
+	ErrSmsCooldown           = errors.New("sms cooldown")
+	ErrInvalidToken          = errors.New("invalid token")
+	ErrUserNotVerified       = errors.New("user not verified")
+	ErrRedisNotFound         = errors.New("redis not found")
+	ErrAuthBlock             = errors.New("auth temporally blocked")
+)
