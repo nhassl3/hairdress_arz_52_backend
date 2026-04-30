@@ -9,7 +9,10 @@ import (
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/nhassl3/hairdress_arz/internal/config"
+	"github.com/nhassl3/hairdress_arz/internal/db"
+	postgresRedis "github.com/nhassl3/hairdress_arz/internal/repository/postgres"
 	repoRedis "github.com/nhassl3/hairdress_arz/internal/repository/redis"
+	"github.com/nhassl3/hairdress_arz/internal/service"
 	transportGRPC "github.com/nhassl3/hairdress_arz/internal/transport/grpc"
 	"github.com/nhassl3/servicehub-backend/pkg/auth"
 	"github.com/nhassl3/servicehub-backend/pkg/logger"
@@ -47,19 +50,27 @@ func Run(cfg *config.Config) error {
 		}
 	}
 
-	// sqlc store initialize
-	// TODO: initialize db store in internal
-	//store := db.NewStore(pool)
+	// SQLC store initialize
+	store := db.NewStore(pool)
 
-	// redis
-	redisSmsVerification, err := redisPkg.New(ctx, cfg.Redis.Address, cfg.Redis.Username, cfg.Redis.Password, cfg.Redis.DB)
+	// Connect Redis
+	userRedis, err := redisPkg.New(ctx, cfg.Redis.Address, cfg.Redis.Username, cfg.Redis.Password, cfg.Redis.DB)
+	if err != nil {
+		return fmt.Errorf("app.Run: init redis store error: %w", err)
+	}
+	defer func() { _ = userRedis.Close() }()
+	log.Info("connected to redis (user)")
+
+	userImplementsRedis := repoRedis.NewUserRedis(userRedis, cfg.Redis.TTL.ProfileTTL, cfg.Redis.TTL.AuthBlockTTL)
+
+	redisSmsVerification, err := redisPkg.New(ctx, cfg.Redis.Address, cfg.Redis.Username, cfg.Redis.Password, cfg.Redis.DB+1)
 	if err != nil {
 		return fmt.Errorf("app.Run: init redis client error: %w", err)
 	}
 	defer func() { _ = redisSmsVerification.Close() }()
 	log.Info("connected to redis (sms verification)")
 
-	redisTokenBlackList, err := redisPkg.New(ctx, cfg.Redis.Address, cfg.Redis.Username, cfg.Redis.Password, cfg.Redis.DB+1)
+	redisTokenBlackList, err := redisPkg.New(ctx, cfg.Redis.Address, cfg.Redis.Username, cfg.Redis.Password, cfg.Redis.DB+2)
 	if err != nil {
 		return fmt.Errorf("app.Run: init redis client error: %w", err)
 	}
@@ -84,19 +95,18 @@ func Run(cfg *config.Config) error {
 	}
 	accessManager := auth.NewBlacklistedTokenManager(accessMaker, tokenBlacklist)
 
-	_ = accessManager
-
 	refreshManager, err := auth.NewPasetoMaker(cfg.Auth.PasetoKey, cfg.Auth.RefreshTokenTTL)
 	if err != nil {
 		return fmt.Errorf("app.Run: init auth error: %w", err)
 	}
 
-	_ = refreshManager
-
 	// Register repositories
+	authRepo := postgresRedis.NewAuthRepo(store)
 
 	// Register services
-	svcs := &transportGRPC.Services{}
+	svcs := &transportGRPC.Services{
+		Auth: service.NewAuthService(authRepo, accessManager, refreshManager, tokenBlacklist, userImplementsRedis),
+	}
 
 	// make gRPC server
 	grpcServer := transportGRPC.NewServer(svcs, accessManager, log)
