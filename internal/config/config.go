@@ -41,7 +41,9 @@ type RedisConfig struct {
 }
 
 type RedisTTL struct {
-	SmsVerificationCodeTTL time.Duration
+	SmsVerificationCodeTTL,
+	ProfileTTL,
+	AuthBlockTTL time.Duration
 }
 
 type AuthConfig struct {
@@ -79,6 +81,8 @@ func LoadConfig(configFile, envFile string) (*Config, error) {
 	yv.SetDefault("redis.db", 0)
 	yv.SetDefault("log.level", "info")
 	yv.SetDefault("redis.ttl.sms_code_verification", "5m")
+	yv.SetDefault("redis.ttl.profile", "15m")
+	yv.SetDefault("redis.ttl.auth_block", "5m")
 	yv.SetDefault("minio.endpoint", "localhost:9000")
 	yv.SetDefault("minio.use_ssl", "true")
 
@@ -117,6 +121,8 @@ func LoadConfig(configFile, envFile string) (*Config, error) {
 	cfg.Redis.Password = ev.GetString("REDIS_USER_PASSWORD")
 	cfg.Redis.DB = yv.GetInt("redis.db")
 	cfg.Redis.TTL.SmsVerificationCodeTTL = yv.GetDuration("redis.ttl.sms_code_verification")
+	cfg.Redis.TTL.ProfileTTL = yv.GetDuration("redis.ttl.profile")
+	cfg.Redis.TTL.AuthBlockTTL = yv.GetDuration("redis.ttl.auth_block")
 	cfg.Auth.AccessTokenTTL = yv.GetDuration("auth.access_token_ttl")
 	cfg.Auth.RefreshTokenTTL = yv.GetDuration("auth.refresh_token_ttl")
 	cfg.Auth.PasetoKey = ev.GetString("PASETO_KEY")
