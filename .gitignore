@@ -2,3 +2,9 @@
 .idea/
 hairdress_arz_ssh_key
 hairdress_arz_ssh_key.pub
+data-for-smsru-domain
+redis-config/redis.conf
+redis-config/users.acl
+bin/
+logs/
+.claude/
