@@ -22,6 +22,7 @@ var publicMethods = []string{
 	"/auth.v1.AuthService/Login",
 	"/auth.v1.AuthService/Logout",
 	"/auth.v1.AuthService/RefreshToken",
+	"/auth.v1.AuthService/VerifyCode",
 	// TODO: needed to add for watching page
 	// this needed for split CRM system with primary page
 }
@@ -67,4 +68,12 @@ func AuthInterceptor(tokenManager auth.TokenManager) grpc.UnaryServerInterceptor
 func PayloadFromContext(ctx context.Context) (*auth.Payload, bool) {
 	payload, ok := ctx.Value(PayloadKey).(*auth.Payload)
 	return payload, ok
+}
+
+func GetNameFromContext(ctx context.Context) string {
+	payload, ok := ctx.Value(PayloadKey).(*auth.Payload)
+	if !ok {
+		return ""
+	}
+	return payload.Username
 }
