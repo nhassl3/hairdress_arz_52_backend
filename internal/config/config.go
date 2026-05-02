@@ -16,6 +16,7 @@ type Config struct {
 	Auth        AuthConfig
 	Log         LogConfig
 	MinIO       MinIOConfig
+	SmsRu       SmsRu
 }
 
 type ServerConfig struct {
@@ -50,6 +51,16 @@ type AuthConfig struct {
 	PasetoKey string // secret - from .env
 	AccessTokenTTL,
 	RefreshTokenTTL time.Duration
+	OTPConfig OTPConfig
+}
+
+type OTPConfig struct {
+	CodeLength    int32
+	Attempts      int32
+	Cooldown      time.Duration
+	DailyPerPhone int32
+	DailyPerIP    int32
+	SecretKey     string
 }
 
 type LogConfig struct {
@@ -62,6 +73,10 @@ type MinIOConfig struct {
 	SecretKey,
 	Bucket string
 	UseSSL bool
+}
+
+type SmsRu struct {
+	APID string
 }
 
 // LoadConfig reads public configuration from a YAML file and secrets from an .env file
@@ -85,6 +100,11 @@ func LoadConfig(configFile, envFile string) (*Config, error) {
 	yv.SetDefault("redis.ttl.auth_block", "5m")
 	yv.SetDefault("minio.endpoint", "localhost:9000")
 	yv.SetDefault("minio.use_ssl", "true")
+	yv.SetDefault("auth.otp.code_length", 6)
+	yv.SetDefault("auth.otp.attempts", 5)
+	yv.SetDefault("auth.otp.cooldown", "60s")
+	yv.SetDefault("auth.otp.daily_per_phone", 5)
+	yv.SetDefault("auth.otp.daily_per_ip", 20)
 
 	if err := yv.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("config: read yaml %q: %w", configFile, err)
@@ -126,12 +146,20 @@ func LoadConfig(configFile, envFile string) (*Config, error) {
 	cfg.Auth.AccessTokenTTL = yv.GetDuration("auth.access_token_ttl")
 	cfg.Auth.RefreshTokenTTL = yv.GetDuration("auth.refresh_token_ttl")
 	cfg.Auth.PasetoKey = ev.GetString("PASETO_KEY")
+	cfg.Auth.OTPConfig.CodeLength = yv.GetInt32("auth.otp.code_length")
+	cfg.Auth.OTPConfig.Attempts = yv.GetInt32("auth.otp.attempts")
+	cfg.Auth.OTPConfig.Cooldown = yv.GetDuration("auth.otp.cooldown")
+	cfg.Auth.OTPConfig.DailyPerPhone = yv.GetInt32("auth.otp.daily_per_phone")
+	cfg.Auth.OTPConfig.DailyPerIP = yv.GetInt32("auth.otp.daily_per_ip")
+	cfg.Auth.OTPConfig.SecretKey = ev.GetString("SMS_SECRET_KEY")
 
 	cfg.MinIO.Endpoint = yv.GetString("minio.endpoint")
 	cfg.MinIO.AccessKey = ev.GetString("MINIO_ACCESS_KEY")
 	cfg.MinIO.SecretKey = ev.GetString("MINIO_SECRET_KEY")
 	cfg.MinIO.Bucket = yv.GetString("minio.bucket")
 	cfg.MinIO.UseSSL = yv.GetBool("minio.use_ssl")
+
+	cfg.SmsRu.APID = ev.GetString("SMSRU_API_ID")
 
 	cfg.Log.Level = yv.GetString("log.level")
 
