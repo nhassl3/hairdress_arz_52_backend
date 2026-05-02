@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"time"
+
+	"github.com/nhassl3/hairdress_arz/pkg/sms"
 )
 
 type User struct {
 	Username    string    `json:"username"`
+	UID         string    `json:"uid"`
 	FullName    string    `json:"full_name"`
 	PhoneNumber string    `json:"phone_number"`
 	IsVerified  bool      `json:"is_verified"`
@@ -34,6 +37,26 @@ type SmsCodeRecorder struct {
 	ExpiresAt    time.Time `json:"expires_at"`
 }
 
+func NewSmsRecord(hash string, attemptsLeft int32, ttl time.Duration) *SmsCodeRecorder {
+	return &SmsCodeRecorder{
+		Hash:         hash,
+		AttemptsLeft: attemptsLeft,
+		CreatedAt:    time.Now(),
+		ExpiresAt:    time.Now().Add(ttl),
+	}
+}
+
+func (s *SmsCodeRecorder) MarshalBinary() ([]byte, error) {
+	return json.Marshal(s)
+}
+
+func (s *SmsCodeRecorder) UnmarshalBinary(data []byte) error {
+	if s == nil {
+		return ErrRedisNotFound
+	}
+	return json.Unmarshal(data, s)
+}
+
 type CreateUserParams struct {
 	Username    *string
 	FullName    *string
@@ -48,10 +71,9 @@ type UserRepository interface {
 	ExistsByPhoneNumber(ctx context.Context, phoneNumber string) (bool, error)
 	Verify(ctx context.Context, username string) error
 	UpdateLastLogin(ctx context.Context, username string) error
-
-	// VerifyAndTouch two operation in function
-	VerifyAndTouch(ctx context.Context, username string) error
 }
+
+// Redis interfaces
 
 type UserRedis interface {
 	Profile(ctx context.Context, username string) (*User, error)
@@ -62,8 +84,8 @@ type UserRedis interface {
 	DelAuthBlock(ctx context.Context, clientIP string) error
 }
 
-type SmsRepository interface {
-	SaveCode(ctx context.Context, phone, hash string, attempts int32, ttl time.Duration) (*SmsCodeRecorder, error)
+type SmsRedis interface {
+	SaveCode(ctx context.Context, phone, hash string) (*SmsCodeRecorder, error)
 	GetCode(ctx context.Context, phone string) (*SmsCodeRecorder, error)
 	DeleteCode(ctx context.Context, phone string) error
 	DecrementAttempts(ctx context.Context, phone string) (left int32, err error)
@@ -75,4 +97,5 @@ type SmsRepository interface {
 
 type SmsSender interface {
 	Send(ctx context.Context, phone, code string) error
+	Helper() *sms.Helper
 }
