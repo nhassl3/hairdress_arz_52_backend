@@ -2,18 +2,23 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/nhassl3/hairdress_arz/internal/config"
 	"github.com/nhassl3/hairdress_arz/internal/db"
+	"github.com/nhassl3/hairdress_arz/internal/domain"
 	postgresRedis "github.com/nhassl3/hairdress_arz/internal/repository/postgres"
 	repoRedis "github.com/nhassl3/hairdress_arz/internal/repository/redis"
 	"github.com/nhassl3/hairdress_arz/internal/service"
 	transportGRPC "github.com/nhassl3/hairdress_arz/internal/transport/grpc"
+	"github.com/nhassl3/hairdress_arz/pkg/sms"
 	"github.com/nhassl3/servicehub-backend/pkg/auth"
 	"github.com/nhassl3/servicehub-backend/pkg/logger"
 	"github.com/nhassl3/servicehub-backend/pkg/postgres"
@@ -40,14 +45,17 @@ func Run(cfg *config.Config) error {
 		return fmt.Errorf("app.Run: init postgres error: %w", err)
 	}
 	defer pool.Close()
-
 	log.Info("connected to PostgresSQL")
 
-	// migrations
+	// Init migrations, sms sender object
+	var smsSender domain.SmsSender
 	if cfg.Environment == "local" {
 		if err := runMigrations(dsn, log); err != nil {
 			return fmt.Errorf("app.Run: run migrations error: %w", err)
 		}
+		smsSender = sms.NewSMSSenderLog(log, cfg.Auth.OTPConfig.CodeLength, cfg.Auth.OTPConfig.SecretKey)
+	} else {
+		smsSender = sms.NewSMSender(cfg.Auth.OTPConfig.CodeLength, cfg.Auth.OTPConfig.SecretKey)
 	}
 
 	// SQLC store initialize
@@ -63,12 +71,21 @@ func Run(cfg *config.Config) error {
 
 	userImplementsRedis := repoRedis.NewUserRedis(userRedis, cfg.Redis.TTL.ProfileTTL, cfg.Redis.TTL.AuthBlockTTL)
 
-	redisSmsVerification, err := redisPkg.New(ctx, cfg.Redis.Address, cfg.Redis.Username, cfg.Redis.Password, cfg.Redis.DB+1)
+	smsVerificationRedis, err := redisPkg.New(ctx, cfg.Redis.Address, cfg.Redis.Username, cfg.Redis.Password, cfg.Redis.DB+1)
 	if err != nil {
 		return fmt.Errorf("app.Run: init redis client error: %w", err)
 	}
-	defer func() { _ = redisSmsVerification.Close() }()
+	defer func() { _ = smsVerificationRedis.Close() }()
 	log.Info("connected to redis (sms verification)")
+
+	smsVerificationImplementsRedis := repoRedis.NewSMSRedis(
+		smsVerificationRedis,
+		cfg.Redis.TTL.SmsVerificationCodeTTL,
+		cfg.Auth.OTPConfig.Cooldown,
+		cfg.Auth.OTPConfig.Attempts,
+		cfg.Auth.OTPConfig.DailyPerPhone,
+		cfg.Auth.OTPConfig.DailyPerIP,
+	)
 
 	redisTokenBlackList, err := redisPkg.New(ctx, cfg.Redis.Address, cfg.Redis.Username, cfg.Redis.Password, cfg.Redis.DB+2)
 	if err != nil {
@@ -105,7 +122,14 @@ func Run(cfg *config.Config) error {
 
 	// Register services
 	svcs := &transportGRPC.Services{
-		Auth: service.NewAuthService(authRepo, accessManager, refreshManager, tokenBlacklist, userImplementsRedis),
+		Auth: service.NewAuthService(authRepo,
+			accessManager,
+			refreshManager,
+			tokenBlacklist,
+			userImplementsRedis,
+			smsVerificationImplementsRedis,
+			smsSender,
+		),
 	}
 
 	// make gRPC server
@@ -154,7 +178,7 @@ func runMigrations(dsn string, log *zap.Logger) error {
 		_, _ = m.Close()
 	}(m)
 
-	if err := m.Up(); err != nil {
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return fmt.Errorf("app.runMigrations: up migrations error: %w", err)
 	}
 
