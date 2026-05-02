@@ -7,7 +7,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0
 	github.com/jackc/pgx/v5 v5.8.0
-	github.com/nhassl3/hairdress_arz_52_contracts v0.1.4
+	github.com/nhassl3/hairdress_arz_52_contracts v0.1.5
 	github.com/nhassl3/servicehub-backend v0.1.3
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/spf13/viper v1.21.0
