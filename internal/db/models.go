@@ -117,4 +117,5 @@ type User struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 	LastLogin   pgtype.Timestamptz `json:"last_login"`
+	Uid         uuid.UUID          `json:"uid"`
 }
