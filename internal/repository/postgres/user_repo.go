@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/nhassl3/hairdress_arz/internal/db"
 	"github.com/nhassl3/hairdress_arz/internal/domain"
@@ -66,48 +67,43 @@ func (repo *AuthRepo) Create(ctx context.Context, params *domain.CreateUserParam
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	return mapUser(&user), nil
+	return toDomainUser(&user), nil
 }
 
 func (repo *AuthRepo) GetByUsername(ctx context.Context, username string) (*domain.User, error) {
-	return nil, nil
+	user, err := repo.store.GetUserByUsername(ctx, username)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, fmt.Errorf("failed to get user by phone number: %w", err)
+	}
+	return toDomainUser(&user), nil
 }
 
 func (repo *AuthRepo) GetByPhoneNumber(ctx context.Context, phoneNumber string) (*domain.User, error) {
-	return nil, nil
+	user, err := repo.store.GetUserByPhone(ctx, phoneNumber)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, fmt.Errorf("failed to get user by phone number: %w", err)
+	}
+	return toDomainUser(&user), nil
 }
 
 func (repo *AuthRepo) ExistsByUsername(ctx context.Context, username string) (bool, error) {
-	return false, nil
+	return repo.store.ExistsByUsername(ctx, username)
 }
 
 func (repo *AuthRepo) ExistsByPhoneNumber(ctx context.Context, phoneNumber string) (bool, error) {
-	return false, nil
+	return repo.store.ExistsByPhoneNumber(ctx, phoneNumber)
 }
 
 func (repo *AuthRepo) Verify(ctx context.Context, username string) error {
-	return nil
+	return repo.store.VerifyUser(ctx, username)
 }
 
 func (repo *AuthRepo) UpdateLastLogin(ctx context.Context, username string) error {
-	return nil
-}
-
-// VerifyAndTouch two operation in function
-func (repo *AuthRepo) VerifyAndTouch(ctx context.Context, username string) error {
-	return nil
-}
-
-// mapping
-
-func mapUser(u *db.User) *domain.User {
-	return &domain.User{
-		Username:    u.Username,
-		FullName:    text2str(u.FullName),
-		PhoneNumber: u.PhoneNumber,
-		IsVerified:  u.IsVerified,
-		LastLogin:   timeFromTimestampTz(u.LastLogin),
-		CreatedAt:   timeFromTimestampTz(u.CreatedAt),
-		UpdatedAt:   timeFromTimestampTz(u.UpdatedAt),
-	}
+	return repo.store.UpdateLastLogin(ctx, username)
 }
