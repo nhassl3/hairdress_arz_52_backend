@@ -41,7 +41,7 @@ func (u *UserRedis) Profile(ctx context.Context, username string) (*domain.User,
 }
 
 func (u *UserRedis) SetProfile(ctx context.Context, username string, profile *domain.User) error {
-	return u.client.Set(ctx, profilePrefix+username, &profile, u.profileTTL).Err()
+	return u.client.Set(ctx, profilePrefix+username, profile, u.profileTTL).Err()
 }
 
 func (u *UserRedis) DelProfile(ctx context.Context, username string) error {
