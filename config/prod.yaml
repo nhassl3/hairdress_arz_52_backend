@@ -18,6 +18,12 @@ redis:
     auth_block: 5m
 
 auth:
+  otp:
+    code_length: 6
+    attempts: 5
+    cooldown: 60s
+    daily_per_phone: 5
+    daily_per_ip: 20
   access_token_ttl: 15m
   refresh_token_ttl: 168h
 

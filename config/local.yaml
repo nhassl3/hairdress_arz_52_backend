@@ -9,7 +9,6 @@ db:
   port: 5432
   ssl_mode: disable
 
-# TODO: create redis db for storage sms code verifications
 redis:
   addr: localhost:6380
   db: 0
@@ -19,10 +18,15 @@ redis:
     auth_block: 5m
 
 auth:
+  otp:
+    code_length: 6
+    attempts: 5
+    cooldown: 60s
+    daily_per_phone: 5
+    daily_per_ip: 20
   access_token_ttl: 15m
   refresh_token_ttl: 168h
 
-# TODO: create minio storage for storage some avatars of hairdressers
 minio:
   endpoint: "localhost:9000"
   bucket: "hairdress-avatars"
