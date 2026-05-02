@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/nhassl3/hairdress_arz/internal/domain"
@@ -18,6 +19,8 @@ type AuthService struct {
 	accessManager  auth.TokenManager
 	blacklist      auth.TokenBlacklist
 	userRedis      domain.UserRedis
+	smsRedis       domain.SmsRedis
+	smsSender      domain.SmsSender
 }
 
 type TokenPair struct {
@@ -27,71 +30,173 @@ type TokenPair struct {
 }
 
 func NewAuthService(userRepo domain.UserRepository, accessManager, refreshManager auth.TokenManager,
-	blacklist auth.TokenBlacklist, userRedis domain.UserRedis) *AuthService {
+	blacklist auth.TokenBlacklist, userRedis domain.UserRedis, smsRedis domain.SmsRedis, smsSender domain.SmsSender) *AuthService {
 	return &AuthService{
 		userRepo:       userRepo,
 		refreshManager: refreshManager,
 		accessManager:  accessManager,
 		blacklist:      blacklist,
 		userRedis:      userRedis,
+		smsRedis:       smsRedis,
+		smsSender:      smsSender,
 	}
 }
 
-func (s *AuthService) Login(ctx context.Context, username string, password string) (string, error) {
-	return "", nil
-}
-
-func (s *AuthService) Register(ctx context.Context, params *domain.CreateUserParams) (*domain.User, *TokenPair, error) {
-	// cooldown 5 minutes for one IP address
-	clientIP, _ := getMetadataFromContext(ctx)
+func (s *AuthService) Login(ctx context.Context, phoneNumber string) (*domain.User, error) {
+	clientIP, _ := getMetadataFromContext(ctx) // cooldown 5 minutes for one IP address
 
 	if block, ttl, err := s.userRedis.AuthBlock(ctx, clientIP); block || err != nil {
-		return nil, nil, fmt.Errorf("%w: %f", domain.ErrAuthBlock, ttl)
+		return nil, fmt.Errorf("%w: %f", domain.ErrAuthBlock, ttl)
+	}
+
+	user, err := s.userRepo.GetByPhoneNumber(ctx, phoneNumber)
+	if err != nil {
+		return nil, fmt.Errorf("auth_service.Login: failed to get user by phone number: %w", err)
+	}
+	if err := s.userRedis.SetProfile(ctx, user.Username, user); err != nil {
+		return nil, fmt.Errorf("auth_service.Register: failed to set profile in Redis: %w", err)
+	}
+
+	if err := s.createSendCodeWebhook(ctx, phoneNumber); err != nil {
+		return nil, fmt.Errorf("auth_service.Login: failed to create send code webhook: %w", err)
+	}
+
+	if err := s.userRedis.SetAuthBlock(ctx, clientIP); err != nil {
+		return nil, fmt.Errorf("auth_service.Login: failed to set auth block in Redis: %w", err)
+	}
+
+	return user, nil
+}
+
+func (s *AuthService) Register(ctx context.Context, params domain.CreateUserParams) (*domain.User, error) {
+	clientIP, _ := getMetadataFromContext(ctx) // cooldown 5 minutes for one IP address
+
+	if block, ttl, err := s.userRedis.AuthBlock(ctx, clientIP); block || err != nil {
+		return nil, fmt.Errorf("%w: %f", domain.ErrAuthBlock, ttl)
 	}
 
 	if params.Username == nil {
 		v := generateNewUsername()
 		existsByUsername, err := s.userRepo.ExistsByUsername(ctx, v)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to check new username: %w", err)
+			return nil, fmt.Errorf("auth_service.Register: failed to check new username: %w", err)
 		}
 		for existsByUsername {
 			v = generateNewUsername()
 			existsByUsername, err = s.userRepo.ExistsByUsername(ctx, v)
 			if err != nil {
-				return nil, nil, fmt.Errorf("failed to check new username: %w", err)
+				return nil, fmt.Errorf("auth_service.Register: failed to check new username: %w", err)
 			}
 		}
 		params.Username = &v
 	}
-	user, err := s.userRepo.Create(ctx, params)
+	user, err := s.userRepo.Create(ctx, &params)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
+	}
+	if err := s.userRedis.SetProfile(ctx, user.Username, user); err != nil {
+		return nil, fmt.Errorf("auth_service.Register: failed to set profile in Redis: %w", err)
 	}
 
-	// TODO: sms code business logic
+	if err := s.createSendCodeWebhook(ctx, params.PhoneNumber); err != nil {
+		return nil, err
+	}
 
-	// TODO: create pair of tokens
-	//tokens, err := s.createTokenPair(user.Username, uuid.New().String())
+	if err := s.userRedis.SetAuthBlock(ctx, clientIP); err != nil {
+		return nil, fmt.Errorf("auth_service.Login: failed to set auth block in Redis: %w", err)
+	}
 
-	return user, nil, nil
+	return user, nil
 }
 
-func (s *AuthService) Logout(ctx context.Context) {
+func (s *AuthService) VerifyCode(ctx context.Context, phone, code string) (*TokenPair, error) {
+	user, err := s.userRepo.GetByPhoneNumber(ctx, phone)
+	if err != nil {
+		return nil, fmt.Errorf("auth_service.VerifyCode: failed to get user by phone: %w", err)
+	}
+
+	smsRecorder, err := s.smsRedis.GetCode(ctx, phone)
+	if err != nil {
+		return nil, fmt.Errorf("auth_service.VerifyCode: failed to get sms code: %w", err)
+	}
+	if time.Now().After(smsRecorder.ExpiresAt) {
+		return nil, fmt.Errorf("auth_service.VerifyCode: expired sms code")
+	}
+	if smsRecorder.AttemptsLeft <= 0 {
+		return nil, domain.ErrSmsRateLimited
+	}
+
+	if ok := s.smsSender.Helper().CompareCode(code, smsRecorder.Hash); !ok {
+		return nil, domain.ErrInvalidCode
+	}
+
+	tokenPair, err := s.createTokenPair(user.Username, user.UID, "user")
+	if err != nil {
+		return nil, fmt.Errorf("auth_service.VerifyCode: failed to create token pair: %w", err)
+	}
+
+	if err := s.smsRedis.DeleteCode(ctx, phone); err != nil {
+		return nil, fmt.Errorf("auth_service.VerifyCode: failed to delete sms code (redis): %w", err)
+	}
+
+	return tokenPair, nil
 }
 
-func (s *AuthService) RefreshToken(ctx context.Context) string {
-	return ""
+func (s *AuthService) Logout(ctx context.Context, payload *authServiceHub.Payload) error {
+	return nil
 }
 
-func (s *AuthService) GetMe(ctx context.Context) (*domain.User, error) {
+func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*TokenPair, error) {
 	return nil, nil
+}
+
+func (s *AuthService) GetMe(ctx context.Context, username string) (*domain.User, error) {
+	user, err := s.userRepo.GetByUsername(ctx, username)
+	if err != nil {
+		return nil, fmt.Errorf("auth_service.GetMe: failed to get user by username: %w", err)
+	}
+	return user, nil
 }
 
 // helpers
 
 func generateNewUsername() string {
 	return fmt.Sprintf("@user_%d", uuid.New().ID())
+}
+
+func (s *AuthService) createSendCodeWebhook(ctx context.Context, phoneNumber string) error {
+	code, err := s.smsSender.Helper().GenerateSecureCode()
+	if err != nil {
+		return fmt.Errorf("auth_service.createSendCodeWebhook: failed to generate secure code: %w", err)
+	}
+	if err := s.smsSender.Send(ctx, phoneNumber, code); err != nil {
+		return fmt.Errorf("auth_service.createSendCodeWebhook: failed to send sms: %w", err)
+	}
+
+	if _, err := s.smsRedis.SaveCode(
+		ctx,
+		phoneNumber,
+		s.smsSender.Helper().Code2Hash(code),
+	); err != nil {
+		return fmt.Errorf("auth_service.createSendCodeWebhook: failed to save sms verification code (redis): %w", err)
+	}
+
+	return nil
+}
+
+// createTokenPair
+func (s *AuthService) createTokenPair(username, uid, role string) (*TokenPair, error) {
+	accessToken, err := s.accessManager.CreateToken(username, uid, role)
+	if err != nil {
+		return nil, fmt.Errorf("auth_service: create access token: %w", err)
+	}
+
+	refreshToken, payload, err := s.refreshManager.CreateRefreshToken(username, uid, role)
+	if err != nil {
+		return nil, fmt.Errorf("auth_service: create refresh token: %w", err)
+	}
+
+	return &TokenPair{AccessToken: accessToken, RefreshToken: refreshToken, RefreshTokenPayload: payload}, nil
 }
 
 // getMetadataFromContext
