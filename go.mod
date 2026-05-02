@@ -4,7 +4,10 @@ go 1.26.2
 
 require (
 	github.com/golang-migrate/migrate/v4 v4.19.1
+	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0
+	github.com/jackc/pgx/v5 v5.8.0
+	github.com/nhassl3/hairdress_arz_52_contracts v0.1.4
 	github.com/nhassl3/servicehub-backend v0.1.3
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/spf13/viper v1.21.0
@@ -18,15 +21,14 @@ require (
 	aidanwoods.dev/go-result v0.3.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	github.com/envoyproxy/protoc-gen-validate v1.3.3 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/pgx/v5 v5.8.0 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
-	github.com/nhassl3/hairdress_arz_52_contracts v0.1.4 // indirect
+	github.com/lib/pq v1.10.9 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
