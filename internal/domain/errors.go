@@ -6,6 +6,7 @@ var (
 	ErrUserNotFound          = errors.New("user not found")
 	ErrUsernameAlreadyExists = errors.New("username already exists")
 	ErrPhoneAlreadyExists    = errors.New("phone already exists")
+	ErrForbidden             = errors.New("forbidden")
 	ErrInvalidCode           = errors.New("invalid code")
 	ErrCodeExpired           = errors.New("code expired")
 	ErrTooManyAttempts       = errors.New("too many attempts")
@@ -15,4 +16,5 @@ var (
 	ErrUserNotVerified       = errors.New("user not verified")
 	ErrRedisNotFound         = errors.New("redis not found")
 	ErrAuthBlock             = errors.New("auth temporally blocked")
+	ErrRedisCodeExpired      = errors.New("sms code expired")
 )
