@@ -32,6 +32,7 @@ func text2str(text pgtype.Text) string {
 func toDomainUser(user *db.User) *domain.User {
 	return &domain.User{
 		Username:    user.Username,
+		UID:         user.Uid.String(),
 		PhoneNumber: user.PhoneNumber,
 		FullName:    text2str(user.FullName),
 		IsVerified:  user.IsVerified,
