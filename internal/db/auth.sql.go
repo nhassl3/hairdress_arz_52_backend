@@ -12,7 +12,7 @@ import (
 )
 
 const changePhoneNumber = `-- name: ChangePhoneNumber :one
-UPDATE users SET phone_number = $1, updated_at=now() WHERE username=$2 RETURNING username, full_name, phone_number, is_verified, created_at, updated_at, last_login
+UPDATE users SET phone_number = $1, updated_at=now() WHERE username=$2 RETURNING username, full_name, phone_number, is_verified, created_at, updated_at, last_login, uid
 `
 
 type ChangePhoneNumberParams struct {
@@ -31,6 +31,7 @@ func (q *Queries) ChangePhoneNumber(ctx context.Context, arg ChangePhoneNumberPa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LastLogin,
+		&i.Uid,
 	)
 	return i, err
 }
@@ -38,7 +39,7 @@ func (q *Queries) ChangePhoneNumber(ctx context.Context, arg ChangePhoneNumberPa
 const createUser = `-- name: CreateUser :one
 INSERT INTO users(username, full_name, phone_number)
 VALUES ($1, $2::varchar, $3)
-RETURNING username, full_name, phone_number, is_verified, created_at, updated_at, last_login
+RETURNING username, full_name, phone_number, is_verified, created_at, updated_at, last_login, uid
 `
 
 type CreateUserParams struct {
@@ -58,6 +59,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LastLogin,
+		&i.Uid,
 	)
 	return i, err
 }
@@ -85,7 +87,7 @@ func (q *Queries) ExistsByUsername(ctx context.Context, username string) (bool, 
 }
 
 const getUserByPhone = `-- name: GetUserByPhone :one
-SELECT username, full_name, phone_number, is_verified, created_at, updated_at, last_login FROM users WHERE phone_number=$1
+SELECT username, full_name, phone_number, is_verified, created_at, updated_at, last_login, uid FROM users WHERE phone_number=$1
 `
 
 func (q *Queries) GetUserByPhone(ctx context.Context, phoneNumber string) (User, error) {
@@ -99,12 +101,13 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phoneNumber string) (User,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LastLogin,
+		&i.Uid,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT username, full_name, phone_number, is_verified, created_at, updated_at, last_login FROM users WHERE username=$1
+SELECT username, full_name, phone_number, is_verified, created_at, updated_at, last_login, uid FROM users WHERE username=$1
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
@@ -118,6 +121,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LastLogin,
+		&i.Uid,
 	)
 	return i, err
 }
