@@ -1,5 +1,4 @@
 from datetime import datetime
-
 from pydantic import BaseModel
 
 
@@ -20,3 +19,5 @@ class SmsVerificationResponse(BaseModel):
     expires_at: datetime
     is_used: bool
     created_at: datetime
+
+    ## Не нужна

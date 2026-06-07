@@ -28,7 +28,7 @@ from app.hairdresser_schedule.models import HairdresserSchedules
 from app.bookings.models import Bookings
 
 # 5. SMS верификация
-from app.sms_verifications.models import SmsVerifications
+#from app.sms_verifications.models import SmsVerifications  не нужна
 
 from app.config import settings
 

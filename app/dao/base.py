@@ -11,7 +11,7 @@ class BaseDao:
         async with async_session_maker() as session:
             query = select(cls.model)
             result = await session.execute(query)
-            return await result.scalars().all()
+            return  result.scalars().all()
 
 
     @classmethod
@@ -19,14 +19,14 @@ class BaseDao:
         async with async_session_maker() as session:
             query = select(cls.model).where(cls.model.id == id)
             result = await session.execute(query)
-            return await result.scalars().first()
+            return  result.scalars().first()
 
     @classmethod
     async def find_one_or_none(cls, **filter):
         async with async_session_maker() as session:
             query=select(cls.model).filter_by(**filter)
             result = await session.execute(query)
-            return await result.scalar_one_or_none()
+            return  result.scalar_one_or_none()
 
     @classmethod
     async def find_by_filter(cls, **filter):
@@ -37,7 +37,7 @@ class BaseDao:
                     query = query.filter(getattr(cls.model, key) == value)
 
             result = await session.execute(query)
-            return await result.scalars().all()
+            return  result.scalars().all()
 
 
     @classmethod
@@ -46,7 +46,7 @@ class BaseDao:
             query = update(cls.model).where(cls.model.id == id).values(**kwargs)
             result = await session.execute(query)
             await session.commit()
-            return await result.scalars().first()
+            return  result.scalars().first()
 
     @classmethod
     async def delete_by_id(cls, id:int):
@@ -62,5 +62,5 @@ class BaseDao:
             query = insert(cls.model).values(**kwargs)
             result = await session.execute(query)
             await session.commit()
-            return await result.scalar_one_or_none()
+            return  result.scalar_one_or_none()
 

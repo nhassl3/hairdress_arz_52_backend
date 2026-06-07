@@ -18,3 +18,8 @@ class SmsVerifications(Base):
     __table_args__ = (
         Index("ix_sms_verifications_phone_number_created_at", "phone_number", "created_at"),
     )
+
+
+
+
+    ## Не нужна
