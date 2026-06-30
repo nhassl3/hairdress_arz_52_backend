@@ -1,6 +1,9 @@
+from typing import Dict, Any, Optional
 
 from app.database import async_session_maker
 from sqlalchemy import select, insert, delete, update
+
+
 
 class BaseDao:
 
@@ -29,29 +32,42 @@ class BaseDao:
             return  result.scalar_one_or_none()
 
     @classmethod
-    async def find_by_filter(cls, **filter):
+    async def find_by_filter(cls, skip: int = 0, limit: int = 100, **filter):
         async with async_session_maker() as session:
             query = select(cls.model)
             for key, value in filter.items():
                 if hasattr(cls.model, key) and value is not None:
                     query = query.filter(getattr(cls.model, key) == value)
 
+            query = query.offset(skip).limit(limit)  # пагинация в БД
             result = await session.execute(query)
-            return  result.scalars().all()
-
+            return result.scalars().all()
 
     @classmethod
-    async def update_by_id(cls, id:int, **kwargs):
+    async def update(cls, filters: Dict[str, Any], data: Dict[str, Any]) -> Optional[model]:
+        if not filters:
+            raise ValueError("Filters are required for update")
+
+        if not data:
+            raise ValueError("No data to update")
+
         async with async_session_maker() as session:
-            query = update(cls.model).where(cls.model.id == id).values(**kwargs)
+            query = update(cls.model).filter_by(**filters).values(**data).returning(cls.model)
             result = await session.execute(query)
             await session.commit()
-            return  result.scalars().first()
+            return result.scalar_one_or_none()
 
     @classmethod
     async def delete_by_id(cls, id:int):
         async with async_session_maker() as session:
-            query = delete(cls.model).where(cls.model.id == id)
+            query = delete(cls.model).where(cls.model.id == id).returning(cls.model)
+            await session.execute(query)
+            await session.commit()
+
+    @classmethod
+    async def delete(cls, **filters):
+        async with async_session_maker() as session:
+            query = delete(cls.model).filter_by(**filters)
             await session.execute(query)
             await session.commit()
 
@@ -59,7 +75,7 @@ class BaseDao:
     @classmethod
     async def add(cls, **kwargs):
         async with async_session_maker() as session:
-            query = insert(cls.model).values(**kwargs)
+            query = insert(cls.model).values(**kwargs).returning(cls.model)
             result = await session.execute(query)
             await session.commit()
             return  result.scalar_one_or_none()
