@@ -1,5 +1,22 @@
 from fastapi import FastAPI
 
+# 1. Независимые таблицы
+from app.users.models import Users
+from app.salons.models import Salons
+from app.services.models import Services
+
+# 2. Таблицы, которые ссылаются на независимые
+from app.admins.models import Admins
+from app.hairdressers.models import Hairdressers
+
+# 3. Таблицы "многие-ко-многим"
+from app.hairdresser_salons.models import HairdresserSalons
+from app.hairdresser_services.models import HairdresserServices
+
+# 4. Таблицы с внешними ключами на предыдущие
+from app.hairdresser_work_patterns.models import HairdresserWorkPatterns
+from app.hairdresser_schedule.models import HairdresserSchedules
+from app.bookings.models import Bookings
 
 from app.users.router import router as users_router
 

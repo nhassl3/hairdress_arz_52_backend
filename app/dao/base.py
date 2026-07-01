@@ -10,9 +10,9 @@ class BaseDao:
     model = None
 
     @classmethod
-    async def find_all(cls):
+    async def find_all(cls, skip: int = 0, limit: int = 100):
         async with async_session_maker() as session:
-            query = select(cls.model)
+            query = select(cls.model).offset(skip).limit(limit)
             result = await session.execute(query)
             return  result.scalars().all()
 
@@ -67,9 +67,10 @@ class BaseDao:
     @classmethod
     async def delete(cls, **filters):
         async with async_session_maker() as session:
-            query = delete(cls.model).filter_by(**filters)
-            await session.execute(query)
+            query = delete(cls.model).filter_by(**filters).returning(cls.model)
+            result = await session.execute(query)
             await session.commit()
+            return result.scalar_one_or_none()
 
 
     @classmethod
