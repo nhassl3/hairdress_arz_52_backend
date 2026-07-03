@@ -1,10 +1,10 @@
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
 from app.exceptions import NotFoundElement, NoFieldsToUpdate, AlreadyExistsElement, UserHasBookings
 from app.users.dao import UsersDao
-from app.users.schemas import AdminUser, UserRegister, UpdateUser
+from app.users.schemas import AdminUser, UserRegister, UpdateUser, ReplaceUser
 
 from sqlalchemy.exc import IntegrityError
 
@@ -44,22 +44,6 @@ async def get_filter_users( username:Optional[str] = None,
 
 
 
-# @router.get('/users/search/', response_model=AdminUser)
-# async def search_one_element_user(
-#         field: str,
-#         value: str,
-# ):
-#     allowed_fields = {'username', 'full_name', 'phone_number'}
-#
-#     if field not in allowed_fields:
-#         raise NotFoundElement
-#
-#     user = await UsersDao.find_one_or_none(**{field: value})
-#
-#     if not user:
-#         raise NotFoundElement
-#
-#     return user
 
 
 @router.post('/users', response_model=AdminUser, status_code=201)
@@ -76,21 +60,17 @@ async def create_user(user: UserRegister):
 
 
 @router.put('/users/{username}/', response_model=AdminUser)
-async def update_user(username: str, user_data: UpdateUser):
+async def full_update_user(username: str, user_data: ReplaceUser):
 
     existing_user = await UsersDao.find_one_or_none(username=username)
     if not existing_user:
         raise NotFoundElement
 
-    update_data = user_data.model_dump(exclude_unset=True)
-    if not update_data:
-        raise NoFieldsToUpdate
-
-    if "phone_number" in update_data:
+    update_data = user_data.model_dump()
+    if update_data["phone_number"] != existing_user.phone_number:
         phone_user = await UsersDao.find_one_or_none(phone_number=update_data["phone_number"])
-        if phone_user and phone_user.username != username:
+        if phone_user:
             raise AlreadyExistsElement
-
 
     updated_user = await UsersDao.update(
         filters={"username": username},

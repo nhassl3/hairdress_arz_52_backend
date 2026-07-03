@@ -7,3 +7,5 @@ NoFieldsToUpdate = HTTPException(status_code=400, detail="No fields to update")
 AlreadyExistsElement=HTTPException(status_code=409, detail="Already exists")
 
 UserHasBookings = HTTPException(status_code=409, detail="User has bookings")
+
+SalonHasBookings = HTTPException(status_code=409, detail="Salon has bookings")
