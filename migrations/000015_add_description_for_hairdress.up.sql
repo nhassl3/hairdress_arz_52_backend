@@ -1,0 +1,1 @@
+alter table if exists hairdressers add column if not exists description text default '';

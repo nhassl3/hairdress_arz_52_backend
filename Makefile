@@ -88,10 +88,10 @@ dropdb:
 	@docker exec -it postgres18-$(DB_NAME) dropdb --username=$(DB_USER) $(DB_NAME)
 
 opendb:
-	@docker exec -it postgres15-hairdress_arz psql -U hairdress_arz -d hairdress_arz
+	@docker exec -it postgres18-$(DB_NAME) psql -U $(DB_USER) -d $(DB_NAME)
 
 postgres:
-	@docker run --name postgres15-hairdress_arz -p 5432:5432 -e POSTGRES_USER=hairdress_arz -e POSTGRES_PASSWORD=ippolit -d postgres:15-alpine
+	@docker run --name postgres18-$(DB_NAME) -p 5432:5432 -e POSTGRES_USER=$(DB_USER) -e POSTGRES_PASSWORD=$(DB_PASSWORD) -d postgres:18-alpine
 
 ## ─── Migrations ──────────────────────────────────────────────────────────────
 
@@ -130,7 +130,7 @@ vet:
 
 ##  ─── Redis ───────────────────────────────────────────────────────────────────
 redis:
-	@docker run -d -p 127.0.0.1:6380:6380 -v ./redis-config:/usr/local/etc/redis --name redis7 redis:7-alpine redis-server /usr/local/etc/redis/redis.conf --aclfile /usr/local/etc/redis/users.acl
+	@docker run -d -p 127.0.0.1:6380:6380 -v ./redis-config:/usr/local/etc/redis --name redis7-$(BINARY_NAME) redis:7-alpine redis-server /usr/local/etc/redis/redis.conf --aclfile /usr/local/etc/redis/users.acl
 
 cli-redis:
 	@redis-cli -h localhost -p 6380 --user $(REDIS_USER) -a $(REDIS_USER_PASSWORD)
