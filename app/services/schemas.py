@@ -1,8 +1,11 @@
 
 from decimal import Decimal
 
-from asyncpg.pgproto.pgproto import timedelta
+from datetime import timedelta
 from pydantic import BaseModel
+
+from app.bookings.schemas import AdminBookings
+from app.hairdresser_services.schemas import HairdresserServices
 
 
 class CreateServices(BaseModel):
@@ -21,5 +24,7 @@ class UpdateServices(BaseModel):
 
 class AdminService(CreateServices):
     id:int
+    bookings:list["AdminBookings"] | None =None
+    hairdresser_services:list["HairdresserServices"] | None =None
 
 

@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 from typing import Optional
 
@@ -23,7 +24,6 @@ async def get_all_services(skip: int = 0, limit: int = 100):
 @router.get('/filter_services/', response_model=list[AdminService])
 async def get_filter_service( id:Optional[int] = None,
                               service_name:Optional[str]=None,
-                              duration:Optional[dict]=None,
                               price:Optional[Decimal]=None,
                               description:Optional[str]=None,
                               skip: int = 0, limit: int = 100):
@@ -32,8 +32,6 @@ async def get_filter_service( id:Optional[int] = None,
         filters['id'] = id
     if service_name:
         filters['service_name'] = service_name
-    if duration:
-        filters['duration'] = duration
     if price:
         filters['price'] = price
     if description:
@@ -65,13 +63,15 @@ async def partial_update_service(service_id: int, service_data: UpdateServices):
     if not update_data:
         raise NoFieldsToUpdate
 
-    updated_service = await ServicesDao.update(
+    await ServicesDao.update(
         filters={"id": service_id},
         data=update_data
     )
+    updated_service = await ServicesDao.find_one_or_none(id=service_id)
     return updated_service
 
-@router.delete('/services/{service_id}', response_model=AdminService)
+
+@router.delete('/services/{service_id}')
 async def delete_service(service_id: int):
     existing_service = await ServicesDao.find_one_or_none(id=service_id)
     if not existing_service:
