@@ -1,34 +1,34 @@
-package sms
+package verify
 
 import (
-	"context"
-
-	"github.com/nhassl3/hairdress_arz/pkg/verify"
+	"github.com/nhassl3/hairdress_arz/pkg/verify/mailer"
 )
 
 type Sender struct {
-	helper *verify.Helper
+	helper      *Helper
+	emailNotify mailer.Notifier
 }
 
-func NewSender(codeWidth int32, secretKey string) *Sender {
+func NewSender(codeWidth int32, secretKey string, emailNotify mailer.Notifier) *Sender {
 	return &Sender{
-		helper: verify.NewHelper(
+		helper: NewHelper(
 			secretKey,
 			codeWidth,
 		),
+		emailNotify: emailNotify,
 	}
 }
 
 // SendPhone create post request to https://sms.ru/sms/send?api_id=<api_id>&to=<phone>,<phone>&msg=<msg>json=1
-func (s *Sender) SendPhone(ctx context.Context, phone, code string) error {
+func (s *Sender) SendPhone(phone, code string) error {
 	return nil
 }
 
-// SendEmail compare email message
-func (s *Sender) SendEmail(ctx context.Context, email, code string) error {
-	return nil
+// SendEmail compare and send email message with Yandex or Google SMTP server
+func (s *Sender) SendEmail(email, code string) error {
+	return s.emailNotify.NotifyEmailConfirmation(code, email)
 }
 
-func (s *Sender) Helper() *verify.Helper {
+func (s *Sender) Helper() *Helper {
 	return s.helper
 }
