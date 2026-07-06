@@ -20,7 +20,7 @@ async def get_all_services(skip: int = 0, limit: int = 100):
     return await ServicesDao.find_all(skip=skip, limit=limit)
 
 
-@router.get('/filter_services/', response_model=AdminService)
+@router.get('/filter_services/', response_model=list[AdminService])
 async def get_filter_service( id:Optional[int] = None,
                               service_name:Optional[str]=None,
                               duration:Optional[dict]=None,
@@ -70,3 +70,14 @@ async def partial_update_service(service_id: int, service_data: UpdateServices):
         data=update_data
     )
     return updated_service
+
+@router.delete('/services/{service_id}', response_model=AdminService)
+async def delete_service(service_id: int):
+    existing_service = await ServicesDao.find_one_or_none(id=service_id)
+    if not existing_service:
+        raise NotFoundElement
+    try:
+        await ServicesDao.delete(id=service_id)
+        return {"detail": "Services deleted"}
+    except IntegrityError:
+        raise AlreadyExistsElement
