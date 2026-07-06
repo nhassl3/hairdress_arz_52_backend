@@ -16,6 +16,8 @@ redis:
     sms_code_verification: 5m
     profile: 15m
     auth_block: 5m
+    code: 5m
+    email_verification: 15m
 
 auth:
   otp:
@@ -34,3 +36,7 @@ minio:
 
 log:
   level: debug
+
+smtp:
+  host: "smtp.yandex.ru"
+  port: 587
