@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from sqlalchemy import String,  Text, Interval, Numeric, CheckConstraint
@@ -11,7 +12,7 @@ class Services(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     service_name: Mapped[str] = mapped_column(String, nullable=False)
-    duration: Mapped[dict] = mapped_column(Interval, nullable=False)
+    duration: Mapped[timedelta] = mapped_column(Interval, nullable=False)
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     description: Mapped[str] = mapped_column(Text, server_default="")
 

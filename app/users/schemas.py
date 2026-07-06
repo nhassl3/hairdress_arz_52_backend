@@ -36,18 +36,6 @@ class UpdateUser(BaseModel):
         return v
 
 
-class ReplaceUser(BaseModel):
-    full_name: str
-    phone_number: str
-    is_verified: bool
-
-    @field_validator("phone_number")
-    def validate_phone(cls, v: str) -> str:
-        if not re.match(r"^\+7\d{10}$", v):
-            raise ValueError("Phone number must be in format: +7XXXXXXXXXX (10 digits after +7)")
-        return v
-
-
 class AdminUser(UserRegister):
 
 

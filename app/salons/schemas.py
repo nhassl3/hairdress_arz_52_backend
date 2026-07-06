@@ -14,12 +14,6 @@ class UpdateSalon(BaseModel):
     phone: str | None = None
     is_active: bool | None = None
 
-class ReplaceSalon(BaseModel):
-    salon_name: str
-    address: str
-    phone: str
-    is_active: bool
-
 class AdminSalon(CreateSalon):
     id:int
     created_at: datetime

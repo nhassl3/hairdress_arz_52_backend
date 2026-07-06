@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.exceptions import AlreadyExistsElement, NoFieldsToUpdate, NotFoundElement, SalonHasBookings
 from app.salons.dao import SalonDAO
-from app.salons.schemas import AdminSalon, CreateSalon, UpdateSalon, ReplaceSalon
+from app.salons.schemas import AdminSalon, CreateSalon, UpdateSalon
 
 router = APIRouter(
     prefix="/admin",
@@ -24,21 +24,6 @@ async def create_salon(salon:CreateSalon):
     except IntegrityError:
         raise AlreadyExistsElement
 
-
-
-@router.put("/salons/{salon_id}", response_model=AdminSalon)
-async def full_update_salon(salon_id: int, update_data: ReplaceSalon):
-    existing_salon = await SalonDAO.find_by_id(salon_id)
-    if not existing_salon:
-        raise NotFoundElement
-
-    salon_data = update_data.model_dump()
-    if salon_data["salon_name"] != existing_salon.salon_name:
-        existing_with_new_name = await SalonDAO.find_one_or_none(salon_name=salon_data["salon_name"])
-        if existing_with_new_name and existing_with_new_name.id != salon_id:
-            raise AlreadyExistsElement
-    updated_salon = await SalonDAO.update(filters={"id": salon_id}, data=salon_data)
-    return updated_salon
 
 
 @router.patch("/salons/{salon_id}", response_model=AdminSalon)

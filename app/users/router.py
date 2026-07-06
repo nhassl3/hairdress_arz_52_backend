@@ -4,7 +4,7 @@ from fastapi import APIRouter
 
 from app.exceptions import NotFoundElement, NoFieldsToUpdate, AlreadyExistsElement, UserHasBookings
 from app.users.dao import UsersDao
-from app.users.schemas import AdminUser, UserRegister, UpdateUser, ReplaceUser
+from app.users.schemas import AdminUser, UserRegister, UpdateUser
 
 from sqlalchemy.exc import IntegrityError
 
@@ -57,26 +57,6 @@ async def create_user(user: UserRegister):
 
 
 
-
-
-@router.put('/users/{username}/', response_model=AdminUser)
-async def full_update_user(username: str, user_data: ReplaceUser):
-
-    existing_user = await UsersDao.find_one_or_none(username=username)
-    if not existing_user:
-        raise NotFoundElement
-
-    update_data = user_data.model_dump()
-    if update_data["phone_number"] != existing_user.phone_number:
-        phone_user = await UsersDao.find_one_or_none(phone_number=update_data["phone_number"])
-        if phone_user:
-            raise AlreadyExistsElement
-
-    updated_user = await UsersDao.update(
-        filters={"username": username},
-        data=update_data
-    )
-    return updated_user
 
 
 @router.patch('/users/{username}/', response_model=AdminUser)
