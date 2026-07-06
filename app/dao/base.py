@@ -12,7 +12,7 @@ class BaseDao:
     @classmethod
     async def find_all(cls, skip: int = 0, limit: int = 100):
         async with async_session_maker() as session:
-            query = select(cls.model).offset(skip).limit(limit)
+            query = select(cls.model).options(*cls._load_options).offset(skip).limit(limit)
             result = await session.execute(query)
             return  result.scalars().all()
 
@@ -20,21 +20,21 @@ class BaseDao:
     @classmethod
     async def find_by_id(cls, model_id: int):
         async with async_session_maker() as session:
-            query = select(cls.model).where(cls.model.id == model_id)
+            query = select(cls.model).options(*cls._load_options).where(cls.model.id == model_id)
             result = await session.execute(query)
             return  result.scalars().first()
 
     @classmethod
     async def find_one_or_none(cls, **filters):
         async with async_session_maker() as session:
-            query=select(cls.model).filter_by(**filters)
+            query=select(cls.model).options(*cls._load_options).filter_by(**filters)
             result = await session.execute(query)
             return  result.scalar_one_or_none()
 
     @classmethod
     async def find_by_filter(cls, skip: int = 0, limit: int = 100, **filters):
         async with async_session_maker() as session:
-            query = select(cls.model)
+            query = select(cls.model).options(*cls._load_options)
             for key, value in filters.items():
                 if hasattr(cls.model, key) and value is not None:
                     query = query.filter(getattr(cls.model, key) == value)
