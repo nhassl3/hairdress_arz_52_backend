@@ -1,4 +1,4 @@
-package sms
+package verify
 
 import (
 	"crypto/hmac"
@@ -21,13 +21,15 @@ func NewHelper(secretKey string, codeWidth int32) *Helper {
 	}
 }
 
-// GenerateSecureCode create six-digit code with crypto rand for OTP/PIN-codes
-func (s *Helper) GenerateSecureCode() (string, error) {
-	n, err := rand.Int(rand.Reader, big.NewInt(1000000))
+// GenerateVerifyCode crypto graphic safely method to create six-signs reset password code
+// This will protect the code from predictability.
+func (s *Helper) GenerateVerifyCode() string {
+	maxN := big.NewInt(1000000) // from 0 to 999999
+	n, err := rand.Int(rand.Reader, maxN)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate secure code: %w", err)
+		return ""
 	}
-	return fmt.Sprintf("%0*d", s.codeWidth, n), nil
+	return fmt.Sprintf("%06d", n)
 }
 
 func (s *Helper) Code2Hash(code string) string {

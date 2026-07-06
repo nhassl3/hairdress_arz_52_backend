@@ -17,6 +17,7 @@ type Config struct {
 	Log         LogConfig
 	MinIO       MinIOConfig
 	SmsRu       SmsRu
+	Mailer      Mailer
 }
 
 type ServerConfig struct {
@@ -44,7 +45,9 @@ type RedisConfig struct {
 type RedisTTL struct {
 	SmsVerificationCodeTTL,
 	ProfileTTL,
-	AuthBlockTTL time.Duration
+	AuthBlockTTL,
+	Code,
+	VerifyEmail time.Duration
 }
 
 type AuthConfig struct {
@@ -79,6 +82,14 @@ type SmsRu struct {
 	APID string
 }
 
+type Mailer struct {
+	Host,
+	FromEmail,
+	Username,
+	Password string
+	Port int
+}
+
 // LoadConfig reads public configuration from a YAML file and secrets from an .env file
 //
 // configFile - path to the YAML file
@@ -98,6 +109,8 @@ func LoadConfig(configFile, envFile string) (*Config, error) {
 	yv.SetDefault("redis.ttl.sms_code_verification", "5m")
 	yv.SetDefault("redis.ttl.profile", "15m")
 	yv.SetDefault("redis.ttl.auth_block", "5m")
+	yv.SetDefault("redis.ttl.code", "5m")
+	yv.SetDefault("redis.ttl.verify_email", "15m")
 	yv.SetDefault("minio.endpoint", "localhost:9000")
 	yv.SetDefault("minio.use_ssl", "true")
 	yv.SetDefault("auth.otp.code_length", 6)
@@ -105,6 +118,8 @@ func LoadConfig(configFile, envFile string) (*Config, error) {
 	yv.SetDefault("auth.otp.cooldown", "60s")
 	yv.SetDefault("auth.otp.daily_per_phone", 5)
 	yv.SetDefault("auth.otp.daily_per_ip", 20)
+	yv.SetDefault("smtp.host", "smtp.yandex.ru")
+	yv.SetDefault("smtp.port", 587)
 
 	if err := yv.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("config: read yaml %q: %w", configFile, err)
