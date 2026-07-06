@@ -89,14 +89,40 @@ func (h *AuthHandler) GetMe(ctx context.Context, req *authv1.GetMeRequest) (*aut
 	}, nil
 }
 
-func (h *AuthHandler) VerifyCode(ctx context.Context, req *authv1.VerifyCodeRequest) (*authv1.VerifyCodeResponse, error) {
-	tokenPair, err := h.svc.VerifyCode(ctx, req.GetPhoneNumber(), req.GetCode())
+func (h *AuthHandler) ApproveCode(ctx context.Context, req *authv1.ApproveCodeRequest) (*authv1.ApproveCodeResponse, error) {
+	if err := req.Validate(); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	var method domain.MethodToVerify
+	if email := req.GetEmail(); email != "" {
+		method.Email = &email
+	}
+	if phone := req.GetPhoneNumber(); phone != "" {
+		method.PhoneNumber = &phone
+	}
+
+	token, err := h.svc.ApproveCode(ctx, req.GetOperationId(), method, req.GetCode())
 	if err != nil {
 		return nil, domainErr(err)
 	}
-	return &authv1.VerifyCodeResponse{
-		AccessToken:  tokenPair.AccessToken,
-		RefreshToken: tokenPair.RefreshToken,
+	return &authv1.ApproveCodeResponse{
+		Token: token,
+	}, nil
+}
+
+func (h *AuthHandler) RequestEmailVerify(ctx context.Context, req *authv1.RequestEmailVerifyRequest) (*authv1.RequestEmailVerifyResponse, error) {
+	if err := req.Validate(); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	operationId, err := h.svc.RequestVerifyEmail(ctx, req.GetEmail(), req.GetOperationId())
+	if err != nil {
+		return nil, domainErr(err)
+	}
+
+	return &authv1.RequestEmailVerifyResponse{
+		OperationId: operationId,
 	}, nil
 }
 

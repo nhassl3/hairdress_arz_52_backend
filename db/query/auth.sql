@@ -9,11 +9,17 @@ SELECT * FROM users WHERE username=$1;
 -- name: GetUserByPhone :one
 SELECT * FROM users WHERE phone_number=$1;
 
+-- name: GetUserByEmail :one
+SELECT * FROM users WHERE email=$1;
+
 -- name: ExistsByUsername :one
 SELECT EXISTS(SELECT 1 FROM users WHERE username=$1) AS exists;
 
 -- name: ExistsByPhoneNumber :one
 SELECT EXISTS(SELECT 1 FROM users WHERE phone_number=$1) AS exists;
+
+-- name: ExistsByEmail :one
+SELECT EXISTS(SELECT 1 FROM users WHERE email=$1) AS exists;
 
 -- name: VerifyUser :exec
 UPDATE users SET is_verified=true, last_login=now(), updated_at=now() WHERE username = $1;

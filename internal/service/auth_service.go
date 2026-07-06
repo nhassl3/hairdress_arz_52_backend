@@ -2,12 +2,14 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/nhassl3/hairdress_arz/internal/domain"
+	"github.com/nhassl3/hairdress_arz/internal/repository/redis"
 	"github.com/nhassl3/servicehub-backend/pkg/auth"
 	authServiceHub "github.com/nhassl3/servicehub-backend/pkg/auth"
 	"google.golang.org/grpc/metadata"
@@ -19,8 +21,8 @@ type AuthService struct {
 	accessManager  auth.TokenManager
 	blacklist      auth.TokenBlacklist
 	userRedis      domain.UserRedis
-	smsRedis       domain.SmsRedis
-	smsSender      domain.SmsSender
+	verifyRedis    domain.VerifyRedis
+	sender         domain.VerifySender
 }
 
 type TokenPair struct {
@@ -30,15 +32,16 @@ type TokenPair struct {
 }
 
 func NewAuthService(userRepo domain.UserRepository, accessManager, refreshManager auth.TokenManager,
-	blacklist auth.TokenBlacklist, userRedis domain.UserRedis, smsRedis domain.SmsRedis, smsSender domain.SmsSender) *AuthService {
+	blacklist auth.TokenBlacklist, userRedis domain.UserRedis, verifyRedis domain.VerifyRedis, sender domain.VerifySender,
+) *AuthService {
 	return &AuthService{
 		userRepo:       userRepo,
 		refreshManager: refreshManager,
 		accessManager:  accessManager,
 		blacklist:      blacklist,
 		userRedis:      userRedis,
-		smsRedis:       smsRedis,
-		smsSender:      smsSender,
+		verifyRedis:    verifyRedis,
+		sender:         sender,
 	}
 }
 
@@ -109,50 +112,177 @@ func (s *AuthService) Register(ctx context.Context, params domain.CreateUserPara
 	return user, nil
 }
 
-func (s *AuthService) VerifyCode(ctx context.Context, phone, code string) (*TokenPair, error) {
-	user, err := s.userRepo.GetByPhoneNumber(ctx, phone)
-	if err != nil {
-		return nil, fmt.Errorf("auth_service.VerifyCode: failed to get user by phone: %w", err)
+func (s *AuthService) RequestVerifyEmail(ctx context.Context, email string, operationId string) (string, error) {
+	if exists, err := s.userRepo.ExistsByUsername(ctx, email); !exists {
+		if err != nil {
+			return "", fmt.Errorf("auth_service.RequestVerifyEmail: failed to check existence of user by username: %w", err)
+		}
+		return "", domain.ErrUserNotFound
 	}
 
-	smsRecorder, err := s.smsRedis.GetCode(ctx, phone)
-	if err != nil {
-		return nil, fmt.Errorf("auth_service.VerifyCode: failed to get sms code: %w", err)
-	}
-	if time.Now().After(smsRecorder.ExpiresAt) {
-		return nil, fmt.Errorf("auth_service.VerifyCode: expired sms code")
-	}
-	if smsRecorder.AttemptsLeft <= 0 {
-		return nil, domain.ErrSmsRateLimited
-	}
-
-	if ok := s.smsSender.Helper().CompareCode(code, smsRecorder.Hash); !ok {
-		return nil, domain.ErrInvalidCode
+	// If operationId is provided, this is a re-send — check existing record
+	if operationId != "" {
+		record, err := s.verifyRedis.Code(ctx, operationId)
+		if err != nil {
+			return "", fmt.Errorf("auth_service.RequestVerifyEmail: failed to get existing code: %w", err)
+		}
+		if record.AttemptsLeft <= 0 {
+			return "", domain.ErrSmsRateLimited
+		}
+		// Delete old record so SetCode with NX can succeed
+		_ = s.verifyRedis.DelCode(ctx, operationId)
 	}
 
-	tokenPair, err := s.createTokenPair(user.Username, user.UID, "user")
-	if err != nil {
-		return nil, fmt.Errorf("auth_service.VerifyCode: failed to create token pair: %w", err)
+	var code string
+	for range 5 {
+		code = s.sender.Helper().GenerateVerifyCode()
+		if code != "" {
+			break
+		}
+	}
+	if code == "" {
+		return "", fmt.Errorf("auth_service.RequestVerifyEmail: failed to generate verify code")
 	}
 
-	if err := s.smsRedis.DeleteCode(ctx, phone); err != nil {
-		return nil, fmt.Errorf("auth_service.VerifyCode: failed to delete sms code (redis): %w", err)
+	if operationId == "" {
+		operationId = uuid.NewString()
 	}
 
-	return tokenPair, nil
+	if err := s.verifyRedis.SetCode(ctx, operationId, domain.NewVerifyState(
+		&domain.MethodToVerify{Email: &email}, s.sender.Helper().Code2Hash(code), 3, 0)); err != nil {
+		return "", fmt.Errorf("auth_service.RequestVerifyEmail: failed to set verify code in Redis: %w", err)
+	}
+
+	if err := s.sender.SendEmail(code, email); err != nil {
+		return "", fmt.Errorf("auth_service.RequestVerifyEmail: failed to send verify code: %w", err)
+	}
+
+	return operationId, nil
 }
 
-func (s *AuthService) Logout(ctx context.Context, payload *authServiceHub.Payload) error {
+func (s *AuthService) ApproveCode(ctx context.Context, operationId string, method domain.MethodToVerify, code string) (string, error) {
+	record, err := s.verifyRedis.Code(ctx, operationId)
+	if err != nil {
+		return "", fmt.Errorf("auth_service.ApproveCode: failed to get code: %w", err)
+	}
+	if time.Now().After(record.ExpiresAt) {
+		return "", fmt.Errorf("auth_service.ApproveCode: expired code")
+	}
+	if record.AttemptsLeft <= 0 {
+		return "", domain.ErrSmsRateLimited
+	}
+
+	if ok := s.sender.Helper().CompareCode(code, record.HashCode); !ok {
+		return "", domain.ErrInvalidCode
+	}
+
+	_ = s.verifyRedis.DelCode(ctx, operationId)
+
+	token := uuid.NewString()
+
+	entryCode := redis.VerifySmsEntryKey
+	if method.Email != nil && *method.Email != "" {
+		entryCode = redis.VerifyEmailEntryKey
+	}
+
+	if err := s.verifyRedis.SetVerified(ctx, entryCode, token, method); err != nil {
+		return "", fmt.Errorf("auth_service.ApproveCode: failed to save verified method: %w", err)
+	}
+
+	return token, nil
+}
+
+func (s *AuthService) verifyPhoneNumber(ctx context.Context, code, phoneNumber string) error {
+	if exists, err := s.userRepo.ExistsByPhoneNumber(ctx, phoneNumber); !exists {
+		if err != nil {
+			return fmt.Errorf("auth_service.verifyPhoneNumber: failed to check existence of user by phone: %w", err)
+		}
+		return domain.ErrUserNotFound
+	}
+
+	record, err := s.verifyRedis.Code(ctx, redis.VerifySmsEntryKey+phoneNumber)
+	if err != nil {
+		return fmt.Errorf("auth_service.verifyPhoneNumber: failed to get sms code: %w", err)
+	}
+	if time.Now().After(record.ExpiresAt) {
+		return fmt.Errorf("auth_service.verifyPhoneNumber: expired sms code")
+	}
+	if record.AttemptsLeft <= 0 {
+		return domain.ErrSmsRateLimited
+	}
+
+	if ok := s.sender.Helper().CompareCode(code, record.HashCode); !ok {
+		return domain.ErrInvalidCode
+	}
+
+	_ = s.verifyRedis.DelCode(ctx, redis.VerifySmsEntryKey+phoneNumber)
+
 	return nil
 }
 
+func (s *AuthService) Logout(ctx context.Context, payload *authServiceHub.Payload) error {
+	if payload != nil && payload.JTI != "" {
+		if err := s.blacklist.Blacklist(ctx, payload.JTI, payload.ExpiredAt); err != nil {
+			return fmt.Errorf("auth_service.Logout: blacklist access token: %w", err)
+		}
+		if err := s.userRedis.DelProfile(ctx, payload.Username); err != nil {
+			return fmt.Errorf("auth_service.Logout: failed to delete profile: %w", err)
+		}
+		if err := s.userRedis.DelSession(ctx, payload.Username); err != nil {
+			return fmt.Errorf("auth_service.Logout: failed to delete user session: %w", err)
+		}
+		return s.userRepo.DeleteSession(ctx, payload.Username)
+	}
+	return domain.ErrInvalidToken
+}
+
 func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*TokenPair, error) {
-	return nil, nil
+	payload, err := s.refreshManager.VerifyToken(refreshToken)
+	if err != nil {
+		return nil, domain.ErrInvalidToken
+	}
+
+	session, err := s.userRedis.Session(ctx, payload.Username)
+	if err != nil {
+		if errors.Is(err, domain.ErrRedisNotFound) {
+			session, err = s.userRepo.GetSession(ctx, refreshToken)
+			if err != nil {
+				return nil, fmt.Errorf("auth_service.RefreshToken get session: %w", err)
+			}
+			if err := s.userRedis.SetSession(ctx, session); err != nil {
+				return nil, fmt.Errorf("auth_service.RefreshToken set session (redis): %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("auth_service.RefreshToken get session (redis): %w", err)
+		}
+	}
+
+	if time.Now().After(session.ExpiresAt) {
+		return nil, domain.ErrExpiredToken
+	} else if session.IsBlocked {
+		return nil, domain.ErrSessionIsBlocked
+	}
+
+	accessToken, err := s.accessManager.CreateToken(payload.Username, payload.UID, payload.Role)
+	if err != nil {
+		return nil, fmt.Errorf("auth_service: create access token: %w", err)
+	}
+
+	return &TokenPair{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}, nil
 }
 
 func (s *AuthService) GetMe(ctx context.Context, username string) (*domain.User, error) {
-	user, err := s.userRepo.GetByUsername(ctx, username)
+	user, err := s.userRedis.Profile(ctx, username)
 	if err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) {
+			user, err = s.userRepo.GetByUsername(ctx, username)
+			if err != nil {
+				return nil, fmt.Errorf("auth_service.GetMe: failed to get user by username: %w", err)
+			}
+		}
 		return nil, fmt.Errorf("auth_service.GetMe: failed to get user by username: %w", err)
 	}
 	return user, nil
@@ -165,22 +295,23 @@ func generateNewUsername() string {
 }
 
 func (s *AuthService) createSendCodeWebhook(ctx context.Context, phoneNumber string) error {
-	code, err := s.smsSender.Helper().GenerateSecureCode()
-	if err != nil {
-		return fmt.Errorf("auth_service.createSendCodeWebhook: failed to generate secure code: %w", err)
-	}
-	if err := s.smsSender.Send(ctx, phoneNumber, code); err != nil {
+	code := s.sender.Helper().GenerateVerifyCode()
+	if err := s.sender.SendPhone(phoneNumber, code); err != nil {
 		return fmt.Errorf("auth_service.createSendCodeWebhook: failed to send sms: %w", err)
 	}
 
-	if _, err := s.smsRedis.SaveCode(
+	if err := s.verifyRedis.SetCode(
 		ctx,
-		phoneNumber,
-		s.smsSender.Helper().Code2Hash(code),
+		redis.VerifySmsEntryKey+phoneNumber,
+		domain.NewVerifyState(&domain.MethodToVerify{PhoneNumber: &phoneNumber}, s.sender.Helper().Code2Hash(code), 3, 0),
 	); err != nil {
 		return fmt.Errorf("auth_service.createSendCodeWebhook: failed to save sms verification code (redis): %w", err)
 	}
 
+	return nil
+}
+
+func (s *AuthService) VerifyEmail(ctx context.Context) error {
 	return nil
 }
 
