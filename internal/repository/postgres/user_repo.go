@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/nhassl3/hairdress_arz/internal/db"
 	"github.com/nhassl3/hairdress_arz/internal/domain"
 )
@@ -20,6 +21,8 @@ func NewAuthRepo(store *db.Store) *AuthRepo {
 		store: store,
 	}
 }
+
+// User repository functions
 
 func (repo *AuthRepo) Create(ctx context.Context, params *domain.CreateUserParams) (*domain.User, error) {
 	var user db.User
@@ -53,8 +56,7 @@ func (repo *AuthRepo) Create(ctx context.Context, params *domain.CreateUserParam
 			// this check needed for that if account created twice
 			// and other attempt just not provide
 			// it's ok if in frontend may be a few requests in one method
-			var pgErr *pgconn.PgError
-			if errors.As(fnErr, &pgErr) {
+			if pgErr, ok := errors.AsType[*pgconn.PgError](fnErr); ok {
 				if pgErr.Code == "23505" { // unique constraint
 					return domain.ErrUsernameAlreadyExists
 				}
@@ -81,6 +83,17 @@ func (repo *AuthRepo) GetByUsername(ctx context.Context, username string) (*doma
 	return toDomainUser(&user), nil
 }
 
+func (repo *AuthRepo) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+	user, err := repo.store.GetUserByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, fmt.Errorf("user_repo.GetByEmail: failed to get user by email: %w", err)
+	}
+	return toDomainUser(&user), nil
+}
+
 func (repo *AuthRepo) GetByPhoneNumber(ctx context.Context, phoneNumber string) (*domain.User, error) {
 	user, err := repo.store.GetUserByPhone(ctx, phoneNumber)
 	if err != nil {
@@ -100,10 +113,60 @@ func (repo *AuthRepo) ExistsByPhoneNumber(ctx context.Context, phoneNumber strin
 	return repo.store.ExistsByPhoneNumber(ctx, phoneNumber)
 }
 
+func (repo *AuthRepo) ExistsByEmail(ctx context.Context, email string) (bool, error) {
+	return repo.store.ExistsByEmail(ctx, email)
+}
+
 func (repo *AuthRepo) Verify(ctx context.Context, username string) error {
 	return repo.store.VerifyUser(ctx, username)
 }
 
 func (repo *AuthRepo) UpdateLastLogin(ctx context.Context, username string) error {
 	return repo.store.UpdateLastLogin(ctx, username)
+}
+
+// Session repository functions
+
+func (repo *AuthRepo) CreateSession(ctx context.Context, params domain.CreateSessionParams) (*domain.Session, error) {
+	session, err := repo.store.CreateSession(ctx, db.CreateSessionParams{
+		Username:     params.Username,
+		RefreshToken: params.RefreshToken,
+		UserAgent:    params.UserAgent,
+		ClientIp:     params.ClientIp,
+		ExpiresAt:    pgtype.Timestamptz{Time: params.ExpiresAt, Valid: true},
+		IsBlocked:    params.IsBlocked,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("user_repo.CreateSession: failed to create session: %w", err)
+	}
+	return toDomainSession(session), nil
+}
+
+func (repo *AuthRepo) GetSession(ctx context.Context, refreshToken string) (*domain.Session, error) {
+	row, err := repo.store.GetSession(ctx, refreshToken)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, fmt.Errorf("user_repo.GetSession: %w", err)
+	}
+	return toDomainSession(row), nil
+}
+
+func (repo *AuthRepo) GetSessionByUsername(ctx context.Context, username string) (*domain.Session, error) {
+	row, err := repo.store.GetSessionByUsername(ctx, username)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, fmt.Errorf("user_repo.GetSessionByUsername: %w", err)
+	}
+	return toDomainSession(row), nil
+}
+
+func (repo *AuthRepo) DeleteSession(ctx context.Context, username string) error {
+	if err := repo.store.DeleteSession(ctx, username); err != nil {
+		return fmt.Errorf("user_repo.DeleteSession: %w", err)
+	}
+	return nil
 }

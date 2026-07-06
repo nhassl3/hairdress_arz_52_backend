@@ -100,6 +100,17 @@ type Service struct {
 	Description pgtype.Text     `json:"description"`
 }
 
+type Session struct {
+	ID           uuid.UUID          `json:"id"`
+	Username     string             `json:"username"`
+	RefreshToken string             `json:"refresh_token"`
+	UserAgent    string             `json:"user_agent"`
+	ClientIp     string             `json:"client_ip"`
+	IsBlocked    bool               `json:"is_blocked"`
+	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
 type SmsVerification struct {
 	ID                   int64              `json:"id"`
 	PhoneNumber          string             `json:"phone_number"`
@@ -118,4 +129,5 @@ type User struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 	LastLogin   pgtype.Timestamptz `json:"last_login"`
 	Uid         uuid.UUID          `json:"uid"`
+	Email       string             `json:"email"`
 }
