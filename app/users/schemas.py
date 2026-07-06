@@ -3,6 +3,11 @@ from datetime import datetime
 
 from pydantic import BaseModel, field_validator
 
+from app.bookings.schemas import AdminBookings
+from app.hairdressers.schemas import AdminHairdresser
+from app.admins.schemas import Admins as AdminOut
+
+
 
 class UserRegister(BaseModel):
 
@@ -43,3 +48,6 @@ class AdminUser(UserRegister):
     created_at: datetime
     updated_at: datetime
     last_login: datetime
+    bookings: list[AdminBookings] = []
+    hairdresser: AdminHairdresser | None = None
+    admin: AdminOut | None = None

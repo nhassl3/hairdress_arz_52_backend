@@ -8,6 +8,7 @@ from sqlalchemy import select, insert, delete, update
 class BaseDao:
 
     model = None
+    _load_options = []
 
     @classmethod
     async def find_all(cls, skip: int = 0, limit: int = 100):
