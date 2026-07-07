@@ -41,6 +41,10 @@ func domainErr(err error) error {
 		return status.Error(codes.Unavailable, err.Error())
 	case errors.Is(err, domain.ErrInvalidCredentials):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, domain.ErrInvalidRequestMethod):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, domain.ErrDeviceMistake):
+		return status.Error(codes.PermissionDenied, err.Error())
 	default:
 		return status.Error(codes.Internal, fmt.Sprintf("internal server error: %s", err.Error()))
 	}
