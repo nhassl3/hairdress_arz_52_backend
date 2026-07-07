@@ -12,7 +12,7 @@ import (
 )
 
 const changePhoneNumber = `-- name: ChangePhoneNumber :one
-UPDATE users SET phone_number = $1, updated_at=now() WHERE username=$2 RETURNING username, full_name, phone_number, is_verified, created_at, updated_at, last_login, uid, email
+UPDATE users SET phone_number = $1, updated_at=now() WHERE username=$2 RETURNING username, full_name, phone_number, is_verified, created_at, updated_at, last_login, uid, email, role
 `
 
 type ChangePhoneNumberParams struct {
@@ -33,24 +33,25 @@ func (q *Queries) ChangePhoneNumber(ctx context.Context, arg ChangePhoneNumberPa
 		&i.LastLogin,
 		&i.Uid,
 		&i.Email,
+		&i.Role,
 	)
 	return i, err
 }
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users(username, full_name, phone_number)
-VALUES ($1, $2::varchar, $3)
-RETURNING username, full_name, phone_number, is_verified, created_at, updated_at, last_login, uid, email
+INSERT INTO users(username, email, phone_number)
+VALUES ($1::varchar, $2::text, $3::varchar)
+RETURNING username, full_name, phone_number, is_verified, created_at, updated_at, last_login, uid, email, role
 `
 
 type CreateUserParams struct {
-	Username    string      `json:"username"`
-	FullName    pgtype.Text `json:"full_name"`
+	Username    pgtype.Text `json:"username"`
+	Email       string      `json:"email"`
 	PhoneNumber string      `json:"phone_number"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, createUser, arg.Username, arg.FullName, arg.PhoneNumber)
+	row := q.db.QueryRow(ctx, createUser, arg.Username, arg.Email, arg.PhoneNumber)
 	var i User
 	err := row.Scan(
 		&i.Username,
@@ -62,6 +63,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.LastLogin,
 		&i.Uid,
 		&i.Email,
+		&i.Role,
 	)
 	return i, err
 }
@@ -100,7 +102,7 @@ func (q *Queries) ExistsByUsername(ctx context.Context, username string) (bool, 
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT username, full_name, phone_number, is_verified, created_at, updated_at, last_login, uid, email FROM users WHERE email=$1
+SELECT username, full_name, phone_number, is_verified, created_at, updated_at, last_login, uid, email, role FROM users WHERE email=$1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -116,12 +118,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.LastLogin,
 		&i.Uid,
 		&i.Email,
+		&i.Role,
 	)
 	return i, err
 }
 
 const getUserByPhone = `-- name: GetUserByPhone :one
-SELECT username, full_name, phone_number, is_verified, created_at, updated_at, last_login, uid, email FROM users WHERE phone_number=$1
+SELECT username, full_name, phone_number, is_verified, created_at, updated_at, last_login, uid, email, role FROM users WHERE phone_number=$1
 `
 
 func (q *Queries) GetUserByPhone(ctx context.Context, phoneNumber string) (User, error) {
@@ -137,12 +140,13 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phoneNumber string) (User,
 		&i.LastLogin,
 		&i.Uid,
 		&i.Email,
+		&i.Role,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT username, full_name, phone_number, is_verified, created_at, updated_at, last_login, uid, email FROM users WHERE username=$1
+SELECT username, full_name, phone_number, is_verified, created_at, updated_at, last_login, uid, email, role FROM users WHERE username=$1
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
@@ -158,6 +162,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.LastLogin,
 		&i.Uid,
 		&i.Email,
+		&i.Role,
 	)
 	return i, err
 }
@@ -171,11 +176,31 @@ func (q *Queries) UpdateLastLogin(ctx context.Context, username string) error {
 	return err
 }
 
-const verifyUser = `-- name: VerifyUser :exec
-UPDATE users SET is_verified=true, last_login=now(), updated_at=now() WHERE username = $1
+const verifyUser = `-- name: VerifyUser :one
+UPDATE users SET is_verified=true, last_login=now(), updated_at=now() WHERE
+    ($1::varchar is null or phone_number = $1::varchar)
+    AND ($2::text is null or email = $2::text) RETURNING username, full_name, phone_number, is_verified, created_at, updated_at, last_login, uid, email, role
 `
 
-func (q *Queries) VerifyUser(ctx context.Context, username string) error {
-	_, err := q.db.Exec(ctx, verifyUser, username)
-	return err
+type VerifyUserParams struct {
+	PhoneNumber pgtype.Text `json:"phone_number"`
+	Email       pgtype.Text `json:"email"`
+}
+
+func (q *Queries) VerifyUser(ctx context.Context, arg VerifyUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, verifyUser, arg.PhoneNumber, arg.Email)
+	var i User
+	err := row.Scan(
+		&i.Username,
+		&i.FullName,
+		&i.PhoneNumber,
+		&i.IsVerified,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LastLogin,
+		&i.Uid,
+		&i.Email,
+		&i.Role,
+	)
+	return i, err
 }

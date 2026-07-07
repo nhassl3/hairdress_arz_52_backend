@@ -48,8 +48,8 @@ func (repo *AuthRepo) Create(ctx context.Context, params *domain.CreateUserParam
 		}
 
 		user, fnErr = q.CreateUser(ctx, db.CreateUserParams{
-			Username:    *params.Username,
-			FullName:    str2Text(params.FullName),
+			Username:    str2Text(params.Username),
+			Email:       params.Email,
 			PhoneNumber: params.PhoneNumber,
 		})
 		if fnErr != nil {
@@ -117,8 +117,18 @@ func (repo *AuthRepo) ExistsByEmail(ctx context.Context, email string) (bool, er
 	return repo.store.ExistsByEmail(ctx, email)
 }
 
-func (repo *AuthRepo) Verify(ctx context.Context, username string) error {
-	return repo.store.VerifyUser(ctx, username)
+func (repo *AuthRepo) Verify(ctx context.Context, toVerify *domain.MethodToVerify) (*domain.User, error) {
+	user, err := repo.store.VerifyUser(ctx, db.VerifyUserParams{
+		PhoneNumber: str2Text(toVerify.PhoneNumber),
+		Email:       str2Text(toVerify.Email),
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, fmt.Errorf("user_repo.Verify: failed to verify user: %w", err)
+	}
+	return toDomainUser(&user), nil
 }
 
 func (repo *AuthRepo) UpdateLastLogin(ctx context.Context, username string) error {

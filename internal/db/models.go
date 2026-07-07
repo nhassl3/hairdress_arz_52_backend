@@ -130,4 +130,5 @@ type User struct {
 	LastLogin   pgtype.Timestamptz `json:"last_login"`
 	Uid         uuid.UUID          `json:"uid"`
 	Email       string             `json:"email"`
+	Role        string             `json:"role"`
 }

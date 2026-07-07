@@ -1,6 +1,6 @@
 -- name: CreateUser :one
-INSERT INTO users(username, full_name, phone_number)
-VALUES (sqlc.arg('username'), sqlc.narg('full_name')::varchar, sqlc.arg('phone_number'))
+INSERT INTO users(username, email, phone_number)
+VALUES (sqlc.narg('username')::varchar, sqlc.arg('email')::text, sqlc.arg('phone_number')::varchar)
 RETURNING *;
 
 -- name: GetUserByUsername :one
@@ -21,8 +21,10 @@ SELECT EXISTS(SELECT 1 FROM users WHERE phone_number=$1) AS exists;
 -- name: ExistsByEmail :one
 SELECT EXISTS(SELECT 1 FROM users WHERE email=$1) AS exists;
 
--- name: VerifyUser :exec
-UPDATE users SET is_verified=true, last_login=now(), updated_at=now() WHERE username = $1;
+-- name: VerifyUser :one
+UPDATE users SET is_verified=true, last_login=now(), updated_at=now() WHERE
+    (sqlc.narg('phone_number')::varchar is null or phone_number = sqlc.narg('phone_number')::varchar)
+    AND (sqlc.narg('email')::text is null or email = sqlc.narg('email')::text) RETURNING *;
 
 -- name: UpdateLastLogin :exec
 UPDATE users SET last_login=now(), updated_at=now() WHERE username = $1;
