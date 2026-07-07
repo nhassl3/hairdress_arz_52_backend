@@ -81,17 +81,8 @@ github.com/moby/term v0.5.0 h1:xt8Q1nalod/v7BqbG21f8mQPqH+xAaC9C3N3wfWbVP0=
 github.com/moby/term v0.5.0/go.mod h1:8FzsFHVUBGZdbDsJw/ot+X+d5HLUbvklYLJ9uGfcI3Y=
 github.com/morikuni/aec v1.0.0 h1:nP9CBfwrvYnBRgY6qfDQkygYDmYwOilePFkwzv4dU8A=
 github.com/morikuni/aec v1.0.0/go.mod h1:BbKIizmSmc5MMPqRYbxO4ZU0S0+P200+tUnFx7PXmsc=
-<<<<<<< HEAD
-github.com/nhassl3/hairdress_arz_52_contracts v0.1.4 h1:fygBTG2+bbSOqjz4ObYj3MblL+hOnzqe7AqyMW8Hw5U=
-github.com/nhassl3/hairdress_arz_52_contracts v0.1.4/go.mod h1:69YX9zGfeUrYwzkQWzDJl48S91yizkn+j4ecUHOom14=
-github.com/nhassl3/hairdress_arz_52_contracts v0.1.5 h1:5X/SdKuJSxL0/ip5OLIJeEW300QNAGMfAZDf4wEM6EU=
-github.com/nhassl3/hairdress_arz_52_contracts v0.1.5/go.mod h1:69YX9zGfeUrYwzkQWzDJl48S91yizkn+j4ecUHOom14=
-=======
-github.com/nhassl3/hairdress_arz_52_contracts v0.1.8 h1:ck0w1RaGDgs4PtNgXBH5e7AVdzryaoJPXrnfoudMxa0=
-github.com/nhassl3/hairdress_arz_52_contracts v0.1.8/go.mod h1:69YX9zGfeUrYwzkQWzDJl48S91yizkn+j4ecUHOom14=
-github.com/nhassl3/hairdress_arz_52_contracts v0.1.9 h1:XqcJg+iUCyUzOSfi9n2iuIdzKxEQeLY6Zm7uEDuRiJQ=
-github.com/nhassl3/hairdress_arz_52_contracts v0.1.9/go.mod h1:69YX9zGfeUrYwzkQWzDJl48S91yizkn+j4ecUHOom14=
->>>>>>> origin/main
+github.com/nhassl3/hairdress_arz_52_contracts v0.1.14 h1:OGfZaV5MRO8UmG+iwXbTcmXW0D1Hmuq4OgTQjkQOG8g=
+github.com/nhassl3/hairdress_arz_52_contracts v0.1.14/go.mod h1:eMoanabDSVv/Z9BhSYVkcDboOMq4HOmNHPh7TxBpZEg=
 github.com/nhassl3/servicehub-backend v0.1.3 h1:HIAwVoPm2iE5KieBylAoXS4mk9/42FFb63ykOxjRpfI=
 github.com/nhassl3/servicehub-backend v0.1.3/go.mod h1:MPpj4DdrU8VTQCfvkrRXsNPmKKq3zhbaHWVYsbRJgcE=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=
