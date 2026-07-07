@@ -8,7 +8,8 @@ import (
 )
 
 const (
-	EmailConfirmation = "email_confirmation.html"
+	basePathToTemplates = "pkg/verify/mailer/templates/"
+	EmailConfirmation   = "email_confirmation.html"
 )
 
 // Render rendering new html message on email client
@@ -17,8 +18,8 @@ func Render(name string, data interface{}) (string, error) {
 		name = name + ".html"
 	}
 	t, err := template.ParseFiles(
-		"pkg/mailer/templates/base.html",
-		"pkg/mailer/templates/"+name,
+		basePathToTemplates+"base.html",
+		basePathToTemplates+name,
 	)
 	if err != nil {
 		return "", fmt.Errorf("renderer.Render: failed to parse template: %w", err)

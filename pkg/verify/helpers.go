@@ -11,13 +11,13 @@ import (
 
 type Helper struct {
 	secretKey string
-	codeWidth int32
+	codeLen   int32
 }
 
-func NewHelper(secretKey string, codeWidth int32) *Helper {
+func NewHelper(secretKey string, codeLen int32) *Helper {
 	return &Helper{
 		secretKey: secretKey,
-		codeWidth: codeWidth,
+		codeLen:   codeLen,
 	}
 }
 
@@ -29,7 +29,7 @@ func (s *Helper) GenerateVerifyCode() string {
 	if err != nil {
 		return ""
 	}
-	return fmt.Sprintf("%06d", n)
+	return fmt.Sprintf("%0*d", s.codeLen, n)
 }
 
 func (s *Helper) Code2Hash(code string) string {

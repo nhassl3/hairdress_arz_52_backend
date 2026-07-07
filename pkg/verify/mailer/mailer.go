@@ -152,7 +152,7 @@ func (m *SMTPMailer) NotifyEmailConfirmation(code, email string) error {
 	}
 
 	m.enqueue(job{
-		subject: "ServiceHub | Подтверждение электронного адреса",
+		subject: "HairdressArz | Подтверждение электронного адреса",
 		body:    body,
 		to:      email,
 	})
