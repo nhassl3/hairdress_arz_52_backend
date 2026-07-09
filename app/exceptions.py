@@ -9,3 +9,5 @@ AlreadyExistsElement=HTTPException(status_code=409, detail="Already exists")
 UserHasBookings = HTTPException(status_code=409, detail="User has bookings")
 
 SalonHasBookings = HTTPException(status_code=409, detail="Salon has bookings")
+
+HairdresserHasBookings = HTTPException(status_code=409, detail="Hairdresser has bookings")

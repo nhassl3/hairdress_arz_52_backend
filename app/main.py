@@ -23,6 +23,7 @@ from app.users.router import router as users_router
 from app.salons.router import router as salons_router
 from app.services.router import router as services_router
 from app.admins.router import router as admins_router
+from app.hairdressers.router import router as hairdressers_router
 
 
 app = FastAPI()
@@ -32,3 +33,4 @@ app.include_router(users_router)
 app.include_router(salons_router)
 app.include_router(services_router)
 app.include_router(admins_router)
+app.include_router(hairdressers_router)
