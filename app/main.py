@@ -17,18 +17,18 @@ from app.hairdresser_services.models import HairdresserServices
 from app.hairdresser_work_patterns.models import HairdresserWorkPatterns
 from app.hairdresser_schedule.models import HairdresserSchedules
 from app.bookings.models import Bookings
+from app.sessions.models import Sessions
 
 from app.users.router import router as users_router
 from app.salons.router import router as salons_router
 from app.services.router import router as services_router
-
-
+from app.admins.router import router as admins_router
 
 
 app = FastAPI()
 
 
-
 app.include_router(users_router)
 app.include_router(salons_router)
 app.include_router(services_router)
+app.include_router(admins_router)
