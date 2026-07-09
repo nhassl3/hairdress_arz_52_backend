@@ -1,5 +1,5 @@
+import uuid
 from datetime import datetime
-
 
 from pydantic import BaseModel
 
@@ -18,7 +18,7 @@ class UpdateHairdresser(BaseModel):
 
 
 class AdminHairdresser(BaseModel):
-    id:int
+    id: uuid.UUID
     username: str
     image_url: str
     created_at: datetime
