@@ -10,13 +10,19 @@ import (
 
 type Querier interface {
 	ChangePhoneNumber(ctx context.Context, arg ChangePhoneNumberParams) (User, error)
+	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	DeleteSession(ctx context.Context, username string) error
+	ExistsByEmail(ctx context.Context, email string) (bool, error)
 	ExistsByPhoneNumber(ctx context.Context, phoneNumber string) (bool, error)
 	ExistsByUsername(ctx context.Context, username string) (bool, error)
+	GetSession(ctx context.Context, refreshToken string) (Session, error)
+	GetSessionByUsername(ctx context.Context, username string) (Session, error)
+	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByPhone(ctx context.Context, phoneNumber string) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
 	UpdateLastLogin(ctx context.Context, username string) error
-	VerifyUser(ctx context.Context, username string) error
+	VerifyUser(ctx context.Context, arg VerifyUserParams) (User, error)
 }
 
 var _ Querier = (*Queries)(nil)

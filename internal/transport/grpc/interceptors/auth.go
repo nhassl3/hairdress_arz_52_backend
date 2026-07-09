@@ -22,9 +22,8 @@ var publicMethods = []string{
 	"/auth.v1.AuthService/Login",
 	"/auth.v1.AuthService/Logout",
 	"/auth.v1.AuthService/RefreshToken",
-	"/auth.v1.AuthService/VerifyCode",
-	// TODO: needed to add for watching page
-	// this needed for split CRM system with primary page
+	"/auth.v1.AuthService/ApproveCode",
+	"/auth.v1.AuthService/LoginVerify",
 }
 
 // AuthInterceptor returns a gRPC unary interceptor for PASETO token verification

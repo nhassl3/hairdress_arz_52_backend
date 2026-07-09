@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/nhassl3/hairdress_arz/internal/domain"
@@ -10,6 +11,7 @@ import (
 )
 
 const (
+	sessionPrefix   = "session:"
 	profilePrefix   = "profile:"
 	authBlockPrefix = "auth:block:"
 )
@@ -66,4 +68,25 @@ func (u *UserRedis) SetAuthBlock(ctx context.Context, clientIP string) error {
 
 func (u *UserRedis) DelAuthBlock(ctx context.Context, clientIP string) error {
 	return u.client.Del(ctx, authBlockPrefix+clientIP).Err()
+}
+
+func (u *UserRedis) Session(ctx context.Context, username string) (*domain.Session, error) {
+	var session domain.Session
+
+	if err := u.client.Get(ctx, sessionPrefix+username).Scan(&session); err != nil {
+		if errors.Is(err, redis.Nil) {
+			return nil, domain.ErrRedisNotFound
+		}
+		return nil, fmt.Errorf("user_redis.Session: failed to load session from redis db: %w", err)
+	}
+
+	return &session, nil
+}
+
+func (u *UserRedis) SetSession(ctx context.Context, session *domain.Session) error {
+	return u.client.Set(ctx, sessionPrefix+session.Username, session, time.Until(session.ExpiresAt)).Err()
+}
+
+func (u *UserRedis) DelSession(ctx context.Context, username string) error {
+	return u.client.Del(ctx, sessionPrefix+username).Err()
 }

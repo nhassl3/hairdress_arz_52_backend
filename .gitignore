@@ -9,3 +9,9 @@ redis-config/users.acl
 bin/
 logs/
 .claude/
+HEAD
+hairdress_arz_52_backend_sshkey
+hairdress_arz_52_backend_sshkey.pub
+.local/
+AGENTS.md
+origin/features

@@ -18,7 +18,8 @@ import (
 	repoRedis "github.com/nhassl3/hairdress_arz/internal/repository/redis"
 	"github.com/nhassl3/hairdress_arz/internal/service"
 	transportGRPC "github.com/nhassl3/hairdress_arz/internal/transport/grpc"
-	"github.com/nhassl3/hairdress_arz/pkg/sms"
+	"github.com/nhassl3/hairdress_arz/pkg/verify"
+	"github.com/nhassl3/hairdress_arz/pkg/verify/mailer"
 	"github.com/nhassl3/servicehub-backend/pkg/auth"
 	"github.com/nhassl3/servicehub-backend/pkg/logger"
 	"github.com/nhassl3/servicehub-backend/pkg/postgres"
@@ -47,15 +48,28 @@ func Run(cfg *config.Config) error {
 	defer pool.Close()
 	log.Info("connected to PostgresSQL")
 
+	// Init email templates for verification code on email
+	emailVerification, err := mailer.NewSMTPMailer(
+		cfg.Mailer.Host,
+		cfg.Mailer.Username,
+		cfg.Mailer.Password,
+		cfg.Mailer.FromEmail,
+		cfg.Mailer.Port,
+		log,
+	)
+	if err != nil {
+		return fmt.Errorf("app.Run: init mailer error: %w", err)
+	}
+
 	// Init migrations, sms sender object
-	var smsSender domain.SmsSender
+	var sender domain.VerifySender
 	if cfg.Environment == "local" {
 		if err := runMigrations(dsn, log); err != nil {
 			return fmt.Errorf("app.Run: run migrations error: %w", err)
 		}
-		smsSender = sms.NewSMSSenderLog(log, cfg.Auth.OTPConfig.CodeLength, cfg.Auth.OTPConfig.SecretKey)
+		sender = verify.NewSenderLog(log, cfg.Auth.OTPConfig.CodeLength, cfg.Auth.OTPConfig.SecretKey)
 	} else {
-		smsSender = sms.NewSMSender(cfg.Auth.OTPConfig.CodeLength, cfg.Auth.OTPConfig.SecretKey)
+		sender = verify.NewSender(cfg.Auth.OTPConfig.CodeLength, cfg.Auth.OTPConfig.SecretKey, emailVerification)
 	}
 
 	// SQLC store initialize
@@ -71,18 +85,19 @@ func Run(cfg *config.Config) error {
 
 	userImplementsRedis := repoRedis.NewUserRedis(userRedis, cfg.Redis.TTL.ProfileTTL, cfg.Redis.TTL.AuthBlockTTL)
 
-	smsVerificationRedis, err := redisPkg.New(ctx, cfg.Redis.Address, cfg.Redis.Username, cfg.Redis.Password, cfg.Redis.DB+1)
+	verificationRedis, err := redisPkg.New(ctx, cfg.Redis.Address, cfg.Redis.Username, cfg.Redis.Password, cfg.Redis.DB+1)
 	if err != nil {
 		return fmt.Errorf("app.Run: init redis client error: %w", err)
 	}
-	defer func() { _ = smsVerificationRedis.Close() }()
+	defer func() { _ = verificationRedis.Close() }()
 	log.Info("connected to redis (sms verification)")
 
-	smsVerificationImplementsRedis := repoRedis.NewSMSRedis(
-		smsVerificationRedis,
+	verifyImplementsRedis := repoRedis.NewVerifyRedis(
+		verificationRedis,
 		cfg.Redis.TTL.SmsVerificationCodeTTL,
 		cfg.Auth.OTPConfig.Cooldown,
 		cfg.Auth.OTPConfig.Attempts,
+		cfg.Auth.OTPConfig.DailyPerPhone,
 		cfg.Auth.OTPConfig.DailyPerPhone,
 		cfg.Auth.OTPConfig.DailyPerIP,
 	)
@@ -127,8 +142,8 @@ func Run(cfg *config.Config) error {
 			refreshManager,
 			tokenBlacklist,
 			userImplementsRedis,
-			smsVerificationImplementsRedis,
-			smsSender,
+			verifyImplementsRedis,
+			sender,
 		),
 	}
 
@@ -138,20 +153,20 @@ func Run(cfg *config.Config) error {
 	errCh := make(chan error, 2)
 
 	go func() {
-		if err := grpcServer.Start(cfg.Server.GRPCPort); err != nil {
+		if err := grpcServer.Start(cfg.Server.GRPCHost); err != nil {
 			errCh <- fmt.Errorf("app.Run: start grpc server error: %w", err)
 		}
 	}()
 
 	go func() {
-		if err := grpcServer.StartGateway(ctx, "localhost"+cfg.Server.GRPCPort, cfg.Server.HTTPPort); err != nil {
+		if err := grpcServer.StartGateway(ctx, cfg.Server.GRPCHost, cfg.Server.HTTPHost); err != nil {
 			errCh <- fmt.Errorf("app.Run: start grpc server error: %w", err)
 		}
 	}()
 
 	log.Info("ArzSalon server started",
-		zap.String("port", cfg.Server.GRPCPort),
-		zap.String("http port", cfg.Server.HTTPPort),
+		zap.String("address", cfg.Server.GRPCHost),
+		zap.String("http address", cfg.Server.HTTPHost),
 		zap.String("env", cfg.Environment),
 	)
 

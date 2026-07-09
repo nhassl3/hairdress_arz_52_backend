@@ -17,11 +17,12 @@ type Config struct {
 	Log         LogConfig
 	MinIO       MinIOConfig
 	SmsRu       SmsRu
+	Mailer      Mailer
 }
 
 type ServerConfig struct {
-	GRPCPort,
-	HTTPPort string
+	GRPCHost,
+	HTTPHost string
 }
 
 type DBConfig struct {
@@ -44,7 +45,9 @@ type RedisConfig struct {
 type RedisTTL struct {
 	SmsVerificationCodeTTL,
 	ProfileTTL,
-	AuthBlockTTL time.Duration
+	AuthBlockTTL,
+	Code,
+	VerifyEmail time.Duration
 }
 
 type AuthConfig struct {
@@ -79,6 +82,14 @@ type SmsRu struct {
 	APID string
 }
 
+type Mailer struct {
+	Host,
+	FromEmail,
+	Username,
+	Password string
+	Port int
+}
+
 // LoadConfig reads public configuration from a YAML file and secrets from an .env file
 //
 // configFile - path to the YAML file
@@ -87,8 +98,8 @@ func LoadConfig(configFile, envFile string) (*Config, error) {
 	// ── YAML: public / non-sensitive settings ────────────────────────────────
 	yv := viper.New()
 	yv.SetConfigFile(configFile)
-	yv.SetDefault("server.grpc_port", ":9090")
-	yv.SetDefault("server.http_port", ":8080")
+	yv.SetDefault("server.grpc_host", "0.0.0.0:50051")
+	yv.SetDefault("server.http_host", "0.0.0.0:8080")
 	yv.SetDefault("db.port", 5432)
 	yv.SetDefault("db.ssl_mode", "disable")
 	yv.SetDefault("auth.access_token_ttl", "15m")
@@ -98,6 +109,8 @@ func LoadConfig(configFile, envFile string) (*Config, error) {
 	yv.SetDefault("redis.ttl.sms_code_verification", "5m")
 	yv.SetDefault("redis.ttl.profile", "15m")
 	yv.SetDefault("redis.ttl.auth_block", "5m")
+	yv.SetDefault("redis.ttl.code", "5m")
+	yv.SetDefault("redis.ttl.email_verification", "15m")
 	yv.SetDefault("minio.endpoint", "localhost:9000")
 	yv.SetDefault("minio.use_ssl", "true")
 	yv.SetDefault("auth.otp.code_length", 6)
@@ -105,6 +118,8 @@ func LoadConfig(configFile, envFile string) (*Config, error) {
 	yv.SetDefault("auth.otp.cooldown", "60s")
 	yv.SetDefault("auth.otp.daily_per_phone", 5)
 	yv.SetDefault("auth.otp.daily_per_ip", 20)
+	yv.SetDefault("smtp.host", "smtp.yandex.ru")
+	yv.SetDefault("smtp.port", 587)
 
 	if err := yv.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("config: read yaml %q: %w", configFile, err)
@@ -126,8 +141,8 @@ func LoadConfig(configFile, envFile string) (*Config, error) {
 	// ── Assemble ──────────────────────────────────────────────────────────────
 	cfg := &Config{}
 	cfg.Environment = yv.GetString("environment")
-	cfg.Server.GRPCPort = yv.GetString("server.grpc_port")
-	cfg.Server.HTTPPort = yv.GetString("server.http_port")
+	cfg.Server.GRPCHost = yv.GetString("server.grpc_host")
+	cfg.Server.HTTPHost = yv.GetString("server.http_host")
 
 	cfg.DB.Host = yv.GetString("db.host")
 	cfg.DB.Port = yv.GetInt("db.port")
@@ -143,6 +158,8 @@ func LoadConfig(configFile, envFile string) (*Config, error) {
 	cfg.Redis.TTL.SmsVerificationCodeTTL = yv.GetDuration("redis.ttl.sms_code_verification")
 	cfg.Redis.TTL.ProfileTTL = yv.GetDuration("redis.ttl.profile")
 	cfg.Redis.TTL.AuthBlockTTL = yv.GetDuration("redis.ttl.auth_block")
+	cfg.Redis.TTL.Code = yv.GetDuration("redis.ttl.code")
+	cfg.Redis.TTL.VerifyEmail = yv.GetDuration("redis.ttl.email_verification")
 	cfg.Auth.AccessTokenTTL = yv.GetDuration("auth.access_token_ttl")
 	cfg.Auth.RefreshTokenTTL = yv.GetDuration("auth.refresh_token_ttl")
 	cfg.Auth.PasetoKey = ev.GetString("PASETO_KEY")
@@ -162,6 +179,12 @@ func LoadConfig(configFile, envFile string) (*Config, error) {
 	cfg.SmsRu.APID = ev.GetString("SMSRU_API_ID")
 
 	cfg.Log.Level = yv.GetString("log.level")
+
+	cfg.Mailer.Host = yv.GetString("smtp.host")
+	cfg.Mailer.Port = yv.GetInt("smtp.port")
+	cfg.Mailer.Username = ev.GetString("SMTP_USERNAME")
+	cfg.Mailer.Password = ev.GetString("SMTP_PASSWORD")
+	cfg.Mailer.FromEmail = ev.GetString("SMTP_FROM")
 
 	return cfg, nil
 }

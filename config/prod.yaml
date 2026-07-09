@@ -1,8 +1,8 @@
 environment: prod
 
 server:
-  grpc_port: ":50051"
-  http_port: ":8080"
+  grpc_host: "0.0.0.0:50051"
+  http_host: "0.0.0.0:8080"
 
 db:
   host: localhost
@@ -16,6 +16,8 @@ redis:
     sms_code_verification: 5m
     profile: 15m
     auth_block: 5m
+    code: 5m
+    email_verification: 15m
 
 auth:
   otp:
@@ -34,3 +36,7 @@ minio:
 
 log:
   level: info
+
+smtp:
+  host: "smtp.yandex.ru"
+  port: 465

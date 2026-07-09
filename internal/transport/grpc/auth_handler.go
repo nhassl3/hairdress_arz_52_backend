@@ -24,27 +24,54 @@ func NewAuthHandler(svc *service.AuthService) *AuthHandler {
 	}
 }
 
-func (h *AuthHandler) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.LoginResponse, error) {
-	user, err := h.svc.Login(ctx, req.GetPhoneNumber())
+func (h *AuthHandler) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.AuthResponse, error) {
+	var loginParams *domain.LoginParams
+	switch v := req.GetMethod().(type) {
+	case *authv1.LoginRequest_Email:
+		loginParams = &domain.LoginParams{Email: &v.Email}
+	case *authv1.LoginRequest_Username:
+		loginParams = &domain.LoginParams{Username: &v.Username}
+	case *authv1.LoginRequest_PhoneNumber:
+		loginParams = &domain.LoginParams{PhoneNumber: &v.PhoneNumber}
+	default:
+		return nil, domainErr(domain.ErrInvalidRequestMethod)
+	}
+
+	operationId, user, err := h.svc.Login(ctx, loginParams)
 	if err != nil {
 		return nil, domainErr(err)
 	}
-	return &authv1.LoginResponse{
-		User: protoUser(user),
+	return &authv1.AuthResponse{
+		User:        protoUser(user),
+		OperationId: &operationId,
 	}, nil
 }
 
-func (h *AuthHandler) Register(ctx context.Context, req *authv1.RegisterRequest) (*authv1.RegisterResponse, error) {
-	user, err := h.svc.Register(ctx, domain.CreateUserParams{
+func (h *AuthHandler) LoginVerify(ctx context.Context, req *authv1.LoginVerifyRequest) (*authv1.LoginVerifyResponse, error) {
+	tokens, user, err := h.svc.LoginVerify(ctx, req.GetVerifyToken())
+	if err != nil {
+		return nil, domainErr(err)
+	}
+	return &authv1.LoginVerifyResponse{
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+		User:         protoUser(user),
+	}, nil
+}
+
+func (h *AuthHandler) Register(ctx context.Context, req *authv1.RegisterRequest) (*authv1.AuthResponse, error) {
+	tokens, user, err := h.svc.Register(ctx, domain.CreateUserParams{
 		Username:    &req.Username,
-		FullName:    nil,
+		Email:       req.GetEmail(),
 		PhoneNumber: req.GetPhoneNumber(),
 	})
 	if err != nil {
 		return nil, domainErr(err)
 	}
-	return &authv1.RegisterResponse{
-		User: protoUser(user),
+	return &authv1.AuthResponse{
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+		User:         protoUser(user),
 	}, nil
 }
 
@@ -89,12 +116,51 @@ func (h *AuthHandler) GetMe(ctx context.Context, req *authv1.GetMeRequest) (*aut
 	}, nil
 }
 
-func (h *AuthHandler) VerifyCode(ctx context.Context, req *authv1.VerifyCodeRequest) (*authv1.VerifyCodeResponse, error) {
-	tokenPair, err := h.svc.VerifyCode(ctx, req.GetPhoneNumber(), req.GetCode())
+func (h *AuthHandler) ApproveCode(ctx context.Context, req *authv1.ApproveCodeRequest) (*authv1.ApproveCodeResponse, error) {
+	if err := req.Validate(); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	var method domain.MethodToVerify
+	switch v := req.GetMethod().(type) {
+	case *authv1.ApproveCodeRequest_Email:
+		method.Email = &v.Email
+	case *authv1.ApproveCodeRequest_PhoneNumber:
+		method.PhoneNumber = &v.PhoneNumber
+	default:
+		return nil, domainErr(domain.ErrInvalidRequestMethod)
+	}
+
+	token, err := h.svc.ApproveCode(ctx, req.GetOperationId(), method, req.GetCode())
 	if err != nil {
 		return nil, domainErr(err)
 	}
-	return &authv1.VerifyCodeResponse{
+	return &authv1.ApproveCodeResponse{
+		Token: token,
+	}, nil
+}
+
+func (h *AuthHandler) RequestEmailVerify(ctx context.Context, req *authv1.RequestEmailVerifyRequest) (*authv1.RequestEmailVerifyResponse, error) {
+	if err := req.Validate(); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	operationId, err := h.svc.RequestVerifyEmail(ctx, req.GetEmail(), req.GetOperationId())
+	if err != nil {
+		return nil, domainErr(err)
+	}
+
+	return &authv1.RequestEmailVerifyResponse{
+		OperationId: operationId,
+	}, nil
+}
+
+func (h *AuthHandler) VerifyEmail(ctx context.Context, req *authv1.VerifyEmailRequest) (*authv1.VerifyEmailResponse, error) {
+	tokenPair, err := h.svc.Verify(ctx, req.GetVerifyToken())
+	if err != nil {
+		return nil, domainErr(err)
+	}
+	return &authv1.VerifyEmailResponse{
 		AccessToken:  tokenPair.AccessToken,
 		RefreshToken: tokenPair.RefreshToken,
 	}, nil
@@ -107,6 +173,7 @@ func protoUser(user *domain.User) *authv1.UserInfo {
 		Username:    user.Username,
 		FullName:    user.FullName,
 		PhoneNumber: user.PhoneNumber,
+		Email:       user.Email,
 		IsVerified:  user.IsVerified,
 		CreatedAt:   safeTimestamp(user.CreatedAt),
 		UpdatedAt:   safeTimestamp(user.UpdatedAt),
