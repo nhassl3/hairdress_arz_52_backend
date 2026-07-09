@@ -9,7 +9,8 @@ class UsersDao(BaseDao):
     _load_options = [
         selectinload(Users.bookings),
         selectinload(Users.hairdresser),
-        selectinload(Users.admin)
+        selectinload(Users.admin),
+        selectinload(Users.sessions)
     ]
 
 

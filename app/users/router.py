@@ -24,6 +24,8 @@ async def get_all_users(skip: int = 0, limit: int = 100):
 async def get_filter_users( username:Optional[str] = None,
                           full_name: Optional[str] = None,
                           phone_number:Optional[str] = None,
+                          email: Optional[str] = None,
+                          role: Optional[str] = None,
                           is_verified: Optional[bool] = None,skip: int = 0,limit: int = 100):
     filters = {}
     if username:
@@ -32,6 +34,10 @@ async def get_filter_users( username:Optional[str] = None,
         filters['full_name'] = full_name
     if phone_number:
         filters['phone_number'] = phone_number
+    if email:
+        filters['email'] = email
+    if role:
+        filters['role'] = role
     if is_verified is not None:
         filters['is_verified'] = is_verified
 
@@ -73,6 +79,11 @@ async def partial_update_user(username: str, user_data: UpdateUser):
     if "phone_number" in update_data:
         phone_user = await UsersDao.find_one_or_none(phone_number=update_data["phone_number"])
         if phone_user and phone_user.username != username:
+            raise AlreadyExistsElement
+
+    if "email" in update_data:
+        email_user = await UsersDao.find_one_or_none(email=update_data["email"])
+        if email_user and email_user.username != username:
             raise AlreadyExistsElement
 
     updated_user = await UsersDao.update(
