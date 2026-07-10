@@ -49,8 +49,6 @@ func NewAuthService(userRepo domain.UserRepository, accessManager, refreshManage
 func (s *AuthService) Login(ctx context.Context, params *domain.LoginParams) (operationId string, user *domain.User, err error) {
 	clientIP, _ := getMetadataFromContext(ctx) // cooldown 5 minutes for one IP address
 
-	zap.L().Info("ClientIP", zap.String("clientIP", clientIP))
-
 	if block, ttl, e := s.userRedis.AuthBlock(ctx, clientIP); block || e != nil {
 		return "", nil, fmt.Errorf("%w: %f", domain.ErrAuthBlock, ttl)
 	}
@@ -107,10 +105,10 @@ func (s *AuthService) createSendCodeEmail(ctx context.Context, email, clientIP s
 	}
 
 	if err := s.verifyRedis.IncDailyByMethod(ctx, &domain.MethodToVerify{Email: &email}); err != nil {
-		return "", fmt.Errorf("auth_service.createSendCodeEmail: daily limit exceeded: %w", err)
+		return "", handleErrors(err, "auth_service.createSendCodeEmail: daily limit exceeded")
 	}
 	if err := s.verifyRedis.IncDailyByIP(ctx, redis.VerifyEmailEntryKey, clientIP); err != nil {
-		return "", fmt.Errorf("auth_service.createSendCodeEmail: daily IP limit exceeded: %w", err)
+		return "", handleErrors(err, "auth_service.createSendCodeEmail: daily IP limit exceeded")
 	}
 
 	code := s.sender.Helper().GenerateVerifyCode()
@@ -132,7 +130,9 @@ func (s *AuthService) createSendCodeEmail(ctx context.Context, email, clientIP s
 }
 
 func (s *AuthService) LoginVerify(ctx context.Context, verifyToken string) (*TokenPair, *domain.User, error) {
+	zap.L().Info("VERIFY_TOKEN", zap.String("entryKey", redis.VerifyEmailEntryKey), zap.String("token", verifyToken))
 	device, err := s.verifyRedis.Verified(ctx, redis.VerifyEmailEntryKey, verifyToken)
+	zap.L().Info("REDIS", zap.Any("device", device))
 	if err != nil {
 		device, err = s.verifyRedis.Verified(ctx, redis.VerifySmsEntryKey, verifyToken)
 		if err != nil {
@@ -235,7 +235,7 @@ func (s *AuthService) RequestVerifyEmail(ctx context.Context, email string, oper
 			return "", fmt.Errorf("auth_service.RequestVerifyEmail: failed to get existing code: %w", err)
 		}
 		if record.AttemptsLeft <= 0 {
-			return "", domain.ErrSmsRateLimited
+			return "", domain.ErrVerifyRateLimited
 		}
 		// Delete old record so SetCode with NX can succeed
 		_ = s.verifyRedis.DelCode(ctx, operationId)
@@ -257,7 +257,7 @@ func (s *AuthService) RequestVerifyEmail(ctx context.Context, email string, oper
 	}
 
 	if err := s.verifyRedis.IncDailyByMethod(ctx, &domain.MethodToVerify{Email: &email}); err != nil {
-		return "", fmt.Errorf("auth_service.RequestVerifyEmail: daily limit exceeded: %w", err)
+		return "", handleErrors(err, "auth_service.RequestVerifyEmail: inc daily by method:")
 	}
 
 	if err := s.verifyRedis.SetCode(ctx, operationId, domain.NewVerifyState(
@@ -282,7 +282,7 @@ func (s *AuthService) ApproveCode(ctx context.Context, operationId string, metho
 	}
 
 	if record.AttemptsLeft <= 0 {
-		return "", domain.ErrSmsRateLimited
+		return "", domain.ErrVerifyRateLimited
 	}
 
 	// Determine contact ID and entry code for cooldown/daily tracking
@@ -299,7 +299,7 @@ func (s *AuthService) ApproveCode(ctx context.Context, operationId string, metho
 	// Check cooldown between attempts
 	if contactID != "" {
 		if cd := s.verifyRedis.CheckCooldown(ctx, entryCode, contactID); cd > 0 {
-			return "", fmt.Errorf("%w: cooldown remaining %.0fs", domain.ErrSmsCooldown, cd.Seconds())
+			return "", fmt.Errorf("%w: cooldown remaining %.0fs", domain.ErrVerifyCooldown, cd.Seconds())
 		}
 	}
 
@@ -308,13 +308,13 @@ func (s *AuthService) ApproveCode(ctx context.Context, operationId string, metho
 		remaining, decErr := s.verifyRedis.DecrementAttempts(ctx, operationId)
 		if decErr != nil {
 			// All attempts exhausted
-			return "", domain.ErrSmsRateLimited
+			return "", domain.ErrVerifyRateLimited
 		}
 		if contactID != "" {
 			_ = s.verifyRedis.SetCooldown(ctx, entryCode, contactID, s.verifyRedis.CooldownDuration())
 		}
 		if remaining <= 0 {
-			return "", domain.ErrSmsRateLimited
+			return "", domain.ErrVerifyRateLimited
 		}
 		return "", domain.ErrInvalidCode
 	}
@@ -352,7 +352,7 @@ func (s *AuthService) verifyPhoneNumber(ctx context.Context, code, phoneNumber s
 		return fmt.Errorf("auth_service.verifyPhoneNumber: expired sms code")
 	}
 	if record.AttemptsLeft <= 0 {
-		return domain.ErrSmsRateLimited
+		return domain.ErrVerifyRateLimited
 	}
 
 	if ok := s.sender.Helper().CompareCode(code, record.HashCode); !ok {
@@ -440,10 +440,10 @@ func generateNewUsername() string {
 
 func (s *AuthService) createSendCodeWebhook(ctx context.Context, phoneNumber, clientIP string) (string, error) {
 	if err := s.verifyRedis.IncDailyByMethod(ctx, &domain.MethodToVerify{PhoneNumber: &phoneNumber}); err != nil {
-		return "", fmt.Errorf("auth_service.createSendCodeWebhook: daily limit exceeded: %w", err)
+		return "", handleErrors(err, "auth_service.createSendCodeWebhook: daily limit exceeded")
 	}
 	if err := s.verifyRedis.IncDailyByIP(ctx, redis.VerifySmsEntryKey, clientIP); err != nil {
-		return "", fmt.Errorf("auth_service.createSendCodeWebhook: daily IP limit exceeded: %w", err)
+		return "", handleErrors(err, "auth_service.createSendCodeWebhook: daily IP limit exceeded")
 	}
 
 	code := s.sender.Helper().GenerateVerifyCode()
@@ -550,4 +550,17 @@ func getMetadataFromContext(ctx context.Context) (clientIp string, userAgent str
 		}
 	}
 	return
+}
+
+// handleErrors returns error which text it contains in given error in response
+func handleErrors(err error, beforeError string) error {
+	if err == nil {
+		return nil
+	}
+	for _, domainErr := range domain.ExceededErrors {
+		if err.Error() == domainErr.Error() {
+			return fmt.Errorf("%s: %w", beforeError, domainErr)
+		}
+	}
+	return fmt.Errorf("%s: %w", beforeError, err)
 }
