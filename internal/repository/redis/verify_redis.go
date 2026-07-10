@@ -93,8 +93,7 @@ func (r *VerifyRedis) SetCode(ctx context.Context, operationId string, state *do
 		codePrefix+operationId,
 		state,
 		redis.SetArgs{
-			Mode: "NX",
-			TTL:  r.codeTTL,
+			TTL: r.codeTTL,
 		},
 	).Err()
 }
