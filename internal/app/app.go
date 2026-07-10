@@ -153,20 +153,20 @@ func Run(cfg *config.Config) error {
 	errCh := make(chan error, 2)
 
 	go func() {
-		if err := grpcServer.Start(cfg.Server.GRPCPort); err != nil {
+		if err := grpcServer.Start(cfg.Server.GRPCHost); err != nil {
 			errCh <- fmt.Errorf("app.Run: start grpc server error: %w", err)
 		}
 	}()
 
 	go func() {
-		if err := grpcServer.StartGateway(ctx, "localhost"+cfg.Server.GRPCPort, cfg.Server.HTTPPort); err != nil {
+		if err := grpcServer.StartGateway(ctx, cfg.Server.GRPCHost, cfg.Server.HTTPHost); err != nil {
 			errCh <- fmt.Errorf("app.Run: start grpc server error: %w", err)
 		}
 	}()
 
 	log.Info("ArzSalon server started",
-		zap.String("port", cfg.Server.GRPCPort),
-		zap.String("http port", cfg.Server.HTTPPort),
+		zap.String("address", cfg.Server.GRPCHost),
+		zap.String("http address", cfg.Server.HTTPHost),
 		zap.String("env", cfg.Environment),
 	)
 

@@ -26,6 +26,6 @@ COMMENT ON COLUMN "hairdresser_schedules"."is_available" IS 'false = отпус�
 
 ALTER TABLE "hairdresser_schedules" ADD FOREIGN KEY ("hairdresser_id") REFERENCES "hairdressers" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
-ALTER TABLE "hairdresser_schedules" ADD FOREIGN KEY ("salon_id") REFERENCES "salon" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+ALTER TABLE "hairdresser_schedules" ADD FOREIGN KEY ("salon_id") REFERENCES "salons" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "hairdresser_schedules" ADD FOREIGN KEY ("pattern_id") REFERENCES "hairdresser_work_patterns" ("id") DEFERRABLE INITIALLY IMMEDIATE;

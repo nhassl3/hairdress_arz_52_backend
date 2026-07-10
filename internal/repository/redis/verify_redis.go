@@ -53,7 +53,7 @@ return redis.status_reply('OK')
 const incByIPScript = `
 local v = redis.call("GET", KEYS[1])
 if not v then
-	redis.call("SET", KEYS[1], ARGV[1])
+	redis.call("SET", KEYS[1], 1)
 	redis.call("EXPIRE", KEYS[1], 86400)
 	return redis.status_reply('OK')
 end
@@ -105,7 +105,7 @@ func (r *VerifyRedis) Code(ctx context.Context, operationId string) (*domain.Ver
 		if errors.Is(err, redis.Nil) {
 			return nil, domain.ErrRedisNotFound
 		}
-		return nil, fmt.Errorf("failed to get code for %s%s: %w", operationId, err)
+		return nil, fmt.Errorf("failed to get code for %s: %w", operationId, err)
 	}
 	if time.Now().After(state.ExpiresAt) {
 		return nil, domain.ErrRedisCodeExpired
@@ -119,10 +119,10 @@ func (r *VerifyRedis) DelCode(ctx context.Context, operationId string) error {
 
 // ── Attempts / cooldown (unified for both SMS and email) ─────────────────────
 
-func (r *VerifyRedis) DecrementAttempts(ctx context.Context, entryCode, id string) (int32, error) {
-	v, err := r.client.Eval(ctx, decrementScript, []string{codePrefix + entryCode + id}, nil).Result()
+func (r *VerifyRedis) DecrementAttempts(ctx context.Context, operationId string) (int32, error) {
+	v, err := r.client.Eval(ctx, decrementScript, []string{codePrefix + operationId}, nil).Result()
 	if err != nil {
-		return 0, fmt.Errorf("failed to decrement attempts for %s%s: %w", entryCode, id, err)
+		return 0, fmt.Errorf("failed to decrement attempts for %s: %w", operationId, err)
 	}
 	attempts, ok := v.(int64)
 	if !ok || attempts == 0 {
@@ -130,6 +130,10 @@ func (r *VerifyRedis) DecrementAttempts(ctx context.Context, entryCode, id strin
 	}
 	return int32(attempts), nil
 }
+
+func (r *VerifyRedis) CodeTTL() time.Duration          { return r.codeTTL }
+func (r *VerifyRedis) Attempts() int32                 { return r.attempts }
+func (r *VerifyRedis) CooldownDuration() time.Duration { return r.cooldown }
 
 func (r *VerifyRedis) CheckCooldown(ctx context.Context, entryCode, id string) time.Duration {
 	return r.client.TTL(ctx, CooldownPrefix+entryCode+id).Val()
@@ -168,7 +172,7 @@ func (r *VerifyRedis) Verified(ctx context.Context, entryCode, token string) (*d
 	return &method, nil
 }
 
-func (r *VerifyRedis) SetVerified(ctx context.Context, entryCode, token string, method domain.MethodToVerify) error {
+func (r *VerifyRedis) SetVerified(ctx context.Context, entryCode, token string, method *domain.MethodToVerify) error {
 	return r.client.Set(ctx, verifiedPrefix+entryCode+token, method, r.codeTTL).Err()
 }
 

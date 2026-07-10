@@ -22,7 +22,7 @@ type Querier interface {
 	GetUserByPhone(ctx context.Context, phoneNumber string) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
 	UpdateLastLogin(ctx context.Context, username string) error
-	VerifyUser(ctx context.Context, username string) error
+	VerifyUser(ctx context.Context, arg VerifyUserParams) (User, error)
 }
 
 var _ Querier = (*Queries)(nil)

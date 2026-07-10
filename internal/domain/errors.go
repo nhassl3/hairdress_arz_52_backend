@@ -21,4 +21,6 @@ var (
 	ErrInvalidCredentials    = errors.New("invalid credentials")
 	ErrNotFound              = errors.New("record not found")
 	ErrExpiredToken          = errors.New("refresh token is expired")
+	ErrDeviceMistake         = errors.New("device mistake")
+	ErrInvalidRequestMethod  = errors.New("invalid request method")
 )

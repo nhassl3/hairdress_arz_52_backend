@@ -9,11 +9,11 @@ type Sender struct {
 	emailNotify mailer.Notifier
 }
 
-func NewSender(codeWidth int32, secretKey string, emailNotify mailer.Notifier) *Sender {
+func NewSender(codeLen int32, secretKey string, emailNotify mailer.Notifier) *Sender {
 	return &Sender{
 		helper: NewHelper(
 			secretKey,
-			codeWidth,
+			codeLen,
 		),
 		emailNotify: emailNotify,
 	}

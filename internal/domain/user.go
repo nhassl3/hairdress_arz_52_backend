@@ -13,6 +13,7 @@ type User struct {
 	UID         string    `json:"uid"`
 	FullName    string    `json:"full_name"`
 	Email       string    `json:"email"`
+	Role        string    `json:"role"`
 	PhoneNumber string    `json:"phone_number"`
 	IsVerified  bool      `json:"is_verified"`
 	LastLogin   time.Time `json:"last_login"`
@@ -33,8 +34,14 @@ func (u *User) UnmarshalBinary(data []byte) error {
 
 type CreateUserParams struct {
 	Username    *string
-	FullName    *string
+	Email       string
 	PhoneNumber string
+}
+
+type LoginParams struct {
+	Username,
+	Email,
+	PhoneNumber *string
 }
 
 type MethodToVerify struct {
@@ -90,7 +97,7 @@ type UserRepository interface {
 	ExistsByUsername(ctx context.Context, username string) (bool, error)
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
 	ExistsByPhoneNumber(ctx context.Context, phoneNumber string) (bool, error)
-	Verify(ctx context.Context, username string) error
+	Verify(ctx context.Context, toVerify *MethodToVerify) (*User, error)
 	UpdateLastLogin(ctx context.Context, username string) error
 	CreateSession(ctx context.Context, params CreateSessionParams) (*Session, error)
 	GetSession(ctx context.Context, refreshToken string) (*Session, error)
@@ -123,11 +130,14 @@ type VerifyRedis interface {
 	SetCode(ctx context.Context, operationId string, code *VerifyState) error
 	DelCode(ctx context.Context, operationId string) error
 	Verified(ctx context.Context, entryCode, token string) (*MethodToVerify, error)
-	SetVerified(ctx context.Context, entryCode, token string, method MethodToVerify) error
+	SetVerified(ctx context.Context, entryCode, token string, method *MethodToVerify) error
 	DelVerified(ctx context.Context, entryCode, token string) error
-	DecrementAttempts(ctx context.Context, entryCode, id string) (int32, error)
+	DecrementAttempts(ctx context.Context, operationId string) (int32, error)
 	CheckCooldown(ctx context.Context, entryCode, id string) time.Duration
 	SetCooldown(ctx context.Context, entryCode, id string, duration time.Duration) error
 	IncDailyByMethod(ctx context.Context, method *MethodToVerify) error
 	IncDailyByIP(ctx context.Context, entryCode, ip string) error
+	CodeTTL() time.Duration
+	Attempts() int32
+	CooldownDuration() time.Duration
 }
