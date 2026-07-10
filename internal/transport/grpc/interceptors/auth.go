@@ -20,10 +20,10 @@ const PayloadKey contextKey = "auth_payload"
 var publicMethods = []string{
 	"/auth.v1.AuthService/Register",
 	"/auth.v1.AuthService/Login",
-	"/auth.v1.AuthService/Logout",
 	"/auth.v1.AuthService/RefreshToken",
 	"/auth.v1.AuthService/ApproveCode",
 	"/auth.v1.AuthService/LoginVerify",
+	"/auth.v1.AuthService/RequestEmailVerify",
 }
 
 // AuthInterceptor returns a gRPC unary interceptor for PASETO token verification
