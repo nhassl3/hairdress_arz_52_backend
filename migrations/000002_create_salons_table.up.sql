@@ -1,4 +1,4 @@
-CREATE TABLE "salon" (
+CREATE TABLE "salons" (
                          "id" serial PRIMARY KEY,
                          "salon_name" varchar NOT NULL,
                          "address" varchar NOT NULL,
@@ -8,4 +8,4 @@ CREATE TABLE "salon" (
                          "updated_at" timestamptz NOT NULL DEFAULT (now())
 );
 
-CREATE INDEX ON "salon" ("salon_name");
+CREATE INDEX ON "salons" ("salon_name");

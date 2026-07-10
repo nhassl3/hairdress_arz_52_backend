@@ -24,4 +24,4 @@ COMMENT ON COLUMN "hairdresser_work_patterns"."effective_to" IS 'NULL = бесс
 
 ALTER TABLE "hairdresser_work_patterns" ADD FOREIGN KEY ("hairdresser_id") REFERENCES "hairdressers" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
-ALTER TABLE "hairdresser_work_patterns" ADD FOREIGN KEY ("salon_id") REFERENCES "salon" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+ALTER TABLE "hairdresser_work_patterns" ADD FOREIGN KEY ("salon_id") REFERENCES "salons" ("id") DEFERRABLE INITIALLY IMMEDIATE;
