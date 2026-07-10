@@ -2,13 +2,16 @@
 .idea/
 hairdress_arz_ssh_key
 hairdress_arz_ssh_key.pub
+__pycache__/
 data-for-smsru-domain
 redis-config/redis.conf
 redis-config/users.acl
 bin/
 logs/
 .claude/
+HEAD
 hairdress_arz_52_backend_sshkey
 hairdress_arz_52_backend_sshkey.pub
 .local/
 AGENTS.md
+origin/features
