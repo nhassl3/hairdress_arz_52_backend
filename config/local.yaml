@@ -15,7 +15,7 @@ redis:
   ttl:
     sms_code_verification: 5m
     profile: 15m
-    auth_block: 5m
+    auth_block: 5s
     code: 5m
     email_verification: 15m
 
