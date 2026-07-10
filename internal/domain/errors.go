@@ -10,9 +10,9 @@ var (
 	ErrInvalidCode           = errors.New("invalid code")
 	ErrCodeExpired           = errors.New("code expired")
 	ErrTooManyAttempts       = errors.New("too many attempts")
-	ErrSmsRateLimited        = errors.New("sms rate limited")
+	ErrVerifyRateLimited     = errors.New("verify rate limited")
 	ErrSessionIsBlocked      = errors.New("session is blocked")
-	ErrSmsCooldown           = errors.New("sms cooldown")
+	ErrVerifyCooldown        = errors.New("verify cooldown")
 	ErrInvalidToken          = errors.New("invalid token")
 	ErrUserNotVerified       = errors.New("user not verified")
 	ErrRedisNotFound         = errors.New("redis not found")
@@ -23,4 +23,8 @@ var (
 	ErrExpiredToken          = errors.New("refresh token is expired")
 	ErrDeviceMistake         = errors.New("device mistake")
 	ErrInvalidRequestMethod  = errors.New("invalid request method")
+	ErrDailyLimits           = errors.New("out of daily limits")
+	ErrDailyIPLimits         = errors.New("out of daily limits for ip address")
+
+	ExceededErrors = []error{ErrDailyIPLimits, ErrDailyLimits}
 )

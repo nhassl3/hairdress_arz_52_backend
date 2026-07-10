@@ -29,9 +29,9 @@ func domainErr(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrTooManyAttempts):
 		return status.Error(codes.FailedPrecondition, err.Error())
-	case errors.Is(err, domain.ErrSmsRateLimited):
+	case errors.Is(err, domain.ErrVerifyRateLimited):
 		return status.Error(codes.FailedPrecondition, err.Error())
-	case errors.Is(err, domain.ErrSmsCooldown):
+	case errors.Is(err, domain.ErrVerifyCooldown):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, domain.ErrRedisNotFound):
 		return status.Error(codes.NotFound, err.Error())
@@ -41,6 +41,8 @@ func domainErr(err error) error {
 		return status.Error(codes.Unavailable, err.Error())
 	case errors.Is(err, domain.ErrInvalidCredentials):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, domain.ErrDailyLimits) || errors.Is(err, domain.ErrDailyIPLimits):
+		return status.Error(codes.ResourceExhausted, err.Error())
 	case errors.Is(err, domain.ErrInvalidRequestMethod):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrDeviceMistake):
