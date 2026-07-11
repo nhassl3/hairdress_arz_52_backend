@@ -1,0 +1,132 @@
+package grpc
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/nhassl3/hairdress_arz/internal/domain"
+	"github.com/nhassl3/hairdress_arz/internal/service"
+	bookingv1 "github.com/nhassl3/hairdress_arz_52_contracts/pkg/pb/booking/v1"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+)
+
+var (
+	BookingStatus = map[domain.BookingStatus]bookingv1.StatusBooking{
+		domain.UNSPECIFIED: bookingv1.StatusBooking_BOOKING_STATUS_UNSPECIFIED,
+		domain.PENDING:     bookingv1.StatusBooking_BOOKING_STATUS_PENDING,
+		domain.COMPLETED:   bookingv1.StatusBooking_BOOKING_STATUS_COMPLETED,
+		domain.CONFIRMED:   bookingv1.StatusBooking_BOOKING_STATUS_CONFIRMED,
+		domain.CANCELED:    bookingv1.StatusBooking_BOOKING_STATUS_CONFIRMED,
+		domain.NOSHOW:      bookingv1.StatusBooking_BOOKING_STATUS_NO_SHOW,
+	}
+)
+
+type BookingHandler struct {
+	bookingv1.UnimplementedBookingServiceServer
+	svc *service.BookingService
+}
+
+func NewBookingHandler(svc *service.BookingService) *BookingHandler {
+	return &BookingHandler{
+		svc: svc,
+	}
+}
+
+func (h *BookingHandler) CreateBooking(ctx context.Context, req *bookingv1.CreateBookingRequest) (*bookingv1.CreateBookingResponse, error) {
+	if err := req.Validate(); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	zap.L().Info("INFO", zap.String("status", req.GetStatus().String()))
+	zap.L().Info("INFO", zap.Any("status_enum", req.GetStatus().Enum()))
+	zap.L().Info("INFO", zap.String("status_enum_string", req.GetStatus().Enum().String()))
+	booking, err := h.svc.CreateBooking(ctx, &domain.CreateBookingRequest{
+		Username:      req.Username,
+		HairdresserID: req.HairdresserId,
+		ServiceID:     req.ServiceId,
+		SalonID:       req.SalonId,
+		Description:   req.Description,
+		StartsAt:      req.StartsAt.AsTime(),
+		EndsAt:        req.EndsAt.AsTime(),
+		Status:        domain.Status[req.Status.String()],
+	})
+	zap.L().Info("INFO", zap.Any("domain.Status[req.Status.String()]", domain.Status[req.Status.String()]))
+	if err != nil {
+		return nil, domainErr(err)
+	}
+	return &bookingv1.CreateBookingResponse{
+		Booking: mapBooking(booking),
+	}, nil
+}
+
+func (h *BookingHandler) GetBooking(ctx context.Context, req *bookingv1.GetBookingRequest) (*bookingv1.GetBookingResponse, error) {
+	if err := req.Validate(); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	var (
+		bookings []*domain.Booking
+		err      error
+	)
+	switch v := req.GetMethod().(type) {
+	case *bookingv1.GetBookingRequest_Username:
+		bookings, err = h.svc.GetBookings(ctx, &domain.GetBookingRequest{
+			Username: &v.Username,
+		})
+	case *bookingv1.GetBookingRequest_ServiceId:
+		bookings, err = h.svc.GetBookings(ctx, &domain.GetBookingRequest{
+			ServiceID: &v.ServiceId,
+		})
+	case *bookingv1.GetBookingRequest_SalonId:
+		bookings, err = h.svc.GetBookings(ctx, &domain.GetBookingRequest{
+			SalonID: &v.SalonId,
+		})
+	case *bookingv1.GetBookingRequest_HairdresserId:
+		bookings, err = h.svc.GetBookings(ctx, &domain.GetBookingRequest{
+			HairdresserID: &v.HairdresserId,
+		})
+	case *bookingv1.GetBookingRequest_Id:
+		bookings, err = h.svc.GetBookings(ctx, &domain.GetBookingRequest{
+			ID: &v.Id,
+		})
+	default:
+		return nil, status.Error(codes.Unimplemented, fmt.Sprintf("%T(%v)", v, v))
+	}
+	if err != nil {
+		return nil, domainErr(err)
+	}
+	mBookings := mapBookings(bookings)
+	if mBookings == nil {
+		return nil, domainErr(domain.ErrNoBookings)
+	}
+	return &bookingv1.GetBookingResponse{
+		Bookings: mBookings,
+	}, nil
+}
+
+func mapBooking(booking *domain.Booking) *bookingv1.Bookings {
+	return &bookingv1.Bookings{
+		Id:            booking.ID,
+		Username:      booking.Username,
+		HairdresserId: booking.HairdresserID,
+		ServiceId:     booking.ServiceID,
+		SalonId:       booking.SalonID,
+		Description:   booking.Description,
+		StartsAt:      safeTimestamp(booking.StartsAt),
+		EndsAt:        safeTimestamp(booking.EndsAt),
+		Status:        BookingStatus[booking.Status],
+		CreatedAt:     safeTimestamp(booking.CreatedAt),
+		UpdatedAt:     safeTimestamp(booking.UpdatedAt),
+	}
+}
+
+func mapBookings(bookings []*domain.Booking) []*bookingv1.Bookings {
+	if bookings == nil || len(bookings) == 0 {
+		return nil
+	}
+	protoBookings := make([]*bookingv1.Bookings, 0, len(bookings))
+	for _, booking := range bookings {
+		protoBookings = append(protoBookings, mapBooking(booking))
+	}
+	return protoBookings
+}
