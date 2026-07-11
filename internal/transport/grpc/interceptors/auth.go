@@ -24,6 +24,8 @@ var publicMethods = []string{
 	"/auth.v1.AuthService/RefreshToken",
 	"/auth.v1.AuthService/ApproveCode",
 	"/auth.v1.AuthService/LoginVerify",
+	"/booking.v1.BookingService/CreateBooking",
+	"/booking.v1.BookingService/GetBooking",
 }
 
 // AuthInterceptor returns a gRPC unary interceptor for PASETO token verification
