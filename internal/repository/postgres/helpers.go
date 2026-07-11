@@ -3,6 +3,7 @@ package postgres
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/nhassl3/hairdress_arz/internal/db"
 	"github.com/nhassl3/hairdress_arz/internal/domain"
@@ -16,6 +17,40 @@ func str2Text(str *string) pgtype.Text {
 		}
 	}
 	return pgtype.Text{}
+}
+
+func int2Int8(i *int64) pgtype.Int8 {
+	if i == nil || *i == 0 {
+		return pgtype.Int8{}
+	}
+	return pgtype.Int8{
+		Int64: *i,
+		Valid: true,
+	}
+}
+
+func int2Int4(i *int32) pgtype.Int4 {
+	if i == nil || *i == 0 {
+		return pgtype.Int4{}
+	}
+	return pgtype.Int4{
+		Int32: *i,
+		Valid: true,
+	}
+}
+
+func string2UUID(str string) uuid.UUID {
+	if str == "" {
+		return uuid.Nil
+	}
+	return uuid.MustParse(str)
+}
+
+func string2PgUUID(str *string) pgtype.UUID {
+	if str == nil || len(*str) == 0 {
+		return pgtype.UUID{}
+	}
+	return pgtype.UUID{Bytes: uuid.MustParse(*str), Valid: true}
 }
 
 func timeFromTimestampTz(tm pgtype.Timestamptz) time.Time {
@@ -34,6 +69,10 @@ func pgTimeTZ(ts pgtype.Timestamptz, _ *time.Location) time.Time {
 		return ts.Time
 	}
 	return time.Time{}
+}
+
+func time2PgTime(t time.Time) pgtype.Timestamptz {
+	return pgtype.Timestamptz{Time: t, Valid: true}
 }
 
 func toDomainUser(user *db.User) *domain.User {
@@ -61,4 +100,31 @@ func toDomainSession(s db.Session) *domain.Session {
 		IsBlocked:    s.IsBlocked,
 		CreatedAt:    pgTimeTZ(s.CreatedAt, time.UTC),
 	}
+}
+
+func toDomainBooking(booking db.Booking) *domain.Booking {
+	return &domain.Booking{
+		ID:            booking.ID,
+		Username:      booking.Username,
+		HairdresserID: booking.HairdresserID.String(),
+		ServiceID:     booking.ServiceID,
+		SalonID:       booking.SalonID,
+		StartsAt:      pgTimeTZ(booking.StartsAt, time.UTC),
+		EndsAt:        pgTimeTZ(booking.EndsAt, time.UTC),
+		Description:   text2str(booking.Description),
+		Status:        domain.Status[booking.Status],
+		CreatedAt:     pgTimeTZ(booking.CreatedAt, time.UTC),
+		UpdatedAt:     pgTimeTZ(booking.UpdatedAt, time.UTC),
+	}
+}
+
+func toDomainBookings(bookings []db.Booking) []*domain.Booking {
+	if bookings == nil || len(bookings) == 0 {
+		return nil
+	}
+	domainBookings := make([]*domain.Booking, len(bookings))
+	for _, booking := range bookings {
+		domainBookings = append(domainBookings, toDomainBooking(booking))
+	}
+	return domainBookings
 }
