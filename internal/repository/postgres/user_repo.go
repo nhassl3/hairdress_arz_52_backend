@@ -16,7 +16,7 @@ type AuthRepo struct {
 	store *db.Store
 }
 
-func NewAuthRepo(store *db.Store) *AuthRepo {
+func NewAuthRepository(store *db.Store) *AuthRepo {
 	return &AuthRepo{
 		store: store,
 	}
