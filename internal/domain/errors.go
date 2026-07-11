@@ -23,4 +23,6 @@ var (
 	ErrExpiredToken          = errors.New("refresh token is expired")
 	ErrDeviceMistake         = errors.New("device mistake")
 	ErrInvalidRequestMethod  = errors.New("invalid request method")
+	ErrNoBookings            = errors.New("no bookings")
+	ErrDataNoProvide         = errors.New("data not provide")
 )
