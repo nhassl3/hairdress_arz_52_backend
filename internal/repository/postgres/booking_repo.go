@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
-	"slices"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -32,7 +30,7 @@ func (repo *BookingRepository) CreateBooking(ctx context.Context, params *domain
 		StartsAt:      time2PgTime(params.StartsAt),
 		EndsAt:        time2PgTime(params.EndsAt),
 		Description:   str2Text(&params.Description),
-		Status:        slices.Sorted(maps.Keys(domain.Status))[params.Status],
+		Status:        domain.Status[params.Status],
 	})
 	if err != nil {
 		if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {

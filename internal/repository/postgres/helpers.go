@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"reflect"
 	"time"
 
 	"github.com/google/uuid"
@@ -103,6 +104,9 @@ func toDomainSession(s db.Session) *domain.Session {
 }
 
 func toDomainBooking(booking db.Booking) *domain.Booking {
+	if reflect.ValueOf(booking).IsZero() {
+		return nil
+	}
 	return &domain.Booking{
 		ID:            booking.ID,
 		Username:      booking.Username,
@@ -112,7 +116,7 @@ func toDomainBooking(booking db.Booking) *domain.Booking {
 		StartsAt:      pgTimeTZ(booking.StartsAt, time.UTC),
 		EndsAt:        pgTimeTZ(booking.EndsAt, time.UTC),
 		Description:   text2str(booking.Description),
-		Status:        domain.Status[booking.Status],
+		Status:        domain.StatusReversed[booking.Status],
 		CreatedAt:     pgTimeTZ(booking.CreatedAt, time.UTC),
 		UpdatedAt:     pgTimeTZ(booking.UpdatedAt, time.UTC),
 	}
@@ -124,7 +128,10 @@ func toDomainBookings(bookings []db.Booking) []*domain.Booking {
 	}
 	domainBookings := make([]*domain.Booking, len(bookings))
 	for _, booking := range bookings {
-		domainBookings = append(domainBookings, toDomainBooking(booking))
+		mapBooking := toDomainBooking(booking)
+		if mapBooking != nil {
+			domainBookings = append(domainBookings, mapBooking)
+		}
 	}
 	return domainBookings
 }
