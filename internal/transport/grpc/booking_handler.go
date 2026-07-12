@@ -6,6 +6,7 @@ import (
 
 	"github.com/nhassl3/hairdress_arz/internal/domain"
 	"github.com/nhassl3/hairdress_arz/internal/service"
+	reverseEnums "github.com/nhassl3/hairdress_arz/pkg/reverse-enums"
 	bookingv1 "github.com/nhassl3/hairdress_arz_52_contracts/pkg/pb/booking/v1"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -13,14 +14,15 @@ import (
 )
 
 var (
-	BookingStatus = map[domain.BookingStatus]bookingv1.StatusBooking{
-		domain.UNSPECIFIED: bookingv1.StatusBooking_BOOKING_STATUS_UNSPECIFIED,
-		domain.PENDING:     bookingv1.StatusBooking_BOOKING_STATUS_PENDING,
-		domain.COMPLETED:   bookingv1.StatusBooking_BOOKING_STATUS_COMPLETED,
-		domain.CONFIRMED:   bookingv1.StatusBooking_BOOKING_STATUS_CONFIRMED,
-		domain.CANCELED:    bookingv1.StatusBooking_BOOKING_STATUS_CONFIRMED,
-		domain.NOSHOW:      bookingv1.StatusBooking_BOOKING_STATUS_NO_SHOW,
+	StatusBooking = map[bookingv1.StatusBooking]domain.BookingStatus{
+		bookingv1.StatusBooking_BOOKING_STATUS_UNSPECIFIED: domain.UNSPECIFIED,
+		bookingv1.StatusBooking_BOOKING_STATUS_PENDING:     domain.PENDING,
+		bookingv1.StatusBooking_BOOKING_STATUS_COMPLETED:   domain.COMPLETED,
+		bookingv1.StatusBooking_BOOKING_STATUS_CONFIRMED:   domain.CONFIRMED,
+		bookingv1.StatusBooking_BOOKING_STATUS_CANCELLED:   domain.CANCELED,
+		bookingv1.StatusBooking_BOOKING_STATUS_NO_SHOW:     domain.NOSHOW,
 	}
+	StatusBookingReversed = reverseEnums.ReverseMap(StatusBooking)
 )
 
 type BookingHandler struct {
@@ -38,9 +40,6 @@ func (h *BookingHandler) CreateBooking(ctx context.Context, req *bookingv1.Creat
 	if err := req.Validate(); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	zap.L().Info("INFO", zap.String("status", req.GetStatus().String()))
-	zap.L().Info("INFO", zap.Any("status_enum", req.GetStatus().Enum()))
-	zap.L().Info("INFO", zap.String("status_enum_string", req.GetStatus().Enum().String()))
 	booking, err := h.svc.CreateBooking(ctx, &domain.CreateBookingRequest{
 		Username:      req.Username,
 		HairdresserID: req.HairdresserId,
@@ -49,9 +48,8 @@ func (h *BookingHandler) CreateBooking(ctx context.Context, req *bookingv1.Creat
 		Description:   req.Description,
 		StartsAt:      req.StartsAt.AsTime(),
 		EndsAt:        req.EndsAt.AsTime(),
-		Status:        domain.Status[req.Status.String()],
+		Status:        StatusBooking[req.GetStatus()],
 	})
-	zap.L().Info("INFO", zap.Any("domain.Status[req.Status.String()]", domain.Status[req.Status.String()]))
 	if err != nil {
 		return nil, domainErr(err)
 	}
@@ -105,6 +103,9 @@ func (h *BookingHandler) GetBooking(ctx context.Context, req *bookingv1.GetBooki
 }
 
 func mapBooking(booking *domain.Booking) *bookingv1.Bookings {
+	if booking == nil {
+		return nil
+	}
 	return &bookingv1.Bookings{
 		Id:            booking.ID,
 		Username:      booking.Username,
@@ -114,19 +115,23 @@ func mapBooking(booking *domain.Booking) *bookingv1.Bookings {
 		Description:   booking.Description,
 		StartsAt:      safeTimestamp(booking.StartsAt),
 		EndsAt:        safeTimestamp(booking.EndsAt),
-		Status:        BookingStatus[booking.Status],
+		Status:        StatusBookingReversed[booking.Status],
 		CreatedAt:     safeTimestamp(booking.CreatedAt),
 		UpdatedAt:     safeTimestamp(booking.UpdatedAt),
 	}
 }
 
 func mapBookings(bookings []*domain.Booking) []*bookingv1.Bookings {
+	zap.L().Info("INFO", zap.Any("bookings", bookings))
 	if bookings == nil || len(bookings) == 0 {
 		return nil
 	}
 	protoBookings := make([]*bookingv1.Bookings, 0, len(bookings))
 	for _, booking := range bookings {
-		protoBookings = append(protoBookings, mapBooking(booking))
+		protoBooking := mapBooking(booking)
+		if protoBooking != nil {
+			protoBookings = append(protoBookings, protoBooking)
+		}
 	}
 	return protoBookings
 }
