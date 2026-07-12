@@ -3,6 +3,8 @@ package domain
 import (
 	"context"
 	"time"
+
+	reverseEnums "github.com/nhassl3/hairdress_arz/pkg/reverse-enums"
 )
 
 type BookingStatus int
@@ -17,14 +19,15 @@ const (
 )
 
 var (
-	Status = map[string]BookingStatus{
-		"UNSPECIFIED": UNSPECIFIED,
-		"pending":     PENDING,
-		"confirmed":   CONFIRMED,
-		"completed":   COMPLETED,
-		"cancelled":   CANCELED,
-		"no_show":     NOSHOW,
+	Status = map[BookingStatus]string{
+		UNSPECIFIED: "UNSPECIFIED",
+		PENDING:     "pending",
+		CONFIRMED:   "confirmed",
+		COMPLETED:   "completed",
+		CANCELED:    "cancelled",
+		NOSHOW:      "no_show",
 	}
+	StatusReversed = reverseEnums.ReverseMap(Status)
 )
 
 type CreateBookingRequest struct {
