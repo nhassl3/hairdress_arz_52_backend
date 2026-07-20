@@ -10,3 +10,16 @@ SELECT * FROM bookings WHERE
                             AND (sqlc.narg('hairdresser_id')::uuid is null or hairdresser_id=sqlc.narg('hairdresser_id')::uuid)
                             AND (sqlc.narg('service_id')::integer is null or service_id=sqlc.narg('service_id')::integer)
                             AND (sqlc.narg('salon_id')::integer is null or salon_id=sqlc.narg('salon_id')::integer);
+
+-- name: UpdateBookingStatus :one
+UPDATE bookings SET status=sqlc.arg('booking_status') WHERE
+                                  (sqlc.narg('id')::bigint is not null and id=sqlc.narg('id')::bigint)
+                                    OR (
+                                        sqlc.narg('id')::bigint is null
+                                        AND (sqlc.narg('username')::varchar is null or username=sqlc.narg('username')::varchar)
+                                        AND (sqlc.narg('service_id')::integer is null or service_id=sqlc.narg('service_id')::integer)
+                                        AND (sqlc.narg('salon_id')::integer is null or salon_id=sqlc.narg('salon_id')::integer)
+                                        AND (sqlc.narg('hairdresser_uid')::uuid is null or hairdresser_id=sqlc.narg('hairdresser_uid')::uuid)
+                                        AND sqlc.arg('target_time')::timestamptz >= starts_at
+                                        AND sqlc.arg('target_time')::timestamptz < ends_at
+                                        ) RETURNING *;

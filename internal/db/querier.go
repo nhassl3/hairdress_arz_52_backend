@@ -23,6 +23,7 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByPhone(ctx context.Context, phoneNumber string) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
+	UpdateBookingStatus(ctx context.Context, arg UpdateBookingStatusParams) (Booking, error)
 	UpdateLastLogin(ctx context.Context, username string) error
 	VerifyUser(ctx context.Context, arg VerifyUserParams) (User, error)
 }

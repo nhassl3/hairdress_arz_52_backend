@@ -111,3 +111,54 @@ func (q *Queries) GetBooking(ctx context.Context, arg GetBookingParams) ([]Booki
 	}
 	return items, nil
 }
+
+const updateBookingStatus = `-- name: UpdateBookingStatus :one
+UPDATE bookings SET status=$1 WHERE
+                                  ($2::bigint is not null and id=$2::bigint)
+                                    OR (
+                                        $2::bigint is null
+                                        AND ($3::varchar is null or username=$3::varchar)
+                                        AND ($4::integer is null or service_id=$4::integer)
+                                        AND ($5::integer is null or salon_id=$5::integer)
+                                        AND ($6::uuid is null or hairdresser_id=$6::uuid)
+                                        AND $7::timestamptz >= starts_at
+                                        AND $7::timestamptz < ends_at
+                                        ) RETURNING id, username, hairdresser_id, service_id, salon_id, starts_at, ends_at, description, status, created_at, updated_at
+`
+
+type UpdateBookingStatusParams struct {
+	BookingStatus  string             `json:"booking_status"`
+	ID             pgtype.Int8        `json:"id"`
+	Username       pgtype.Text        `json:"username"`
+	ServiceID      pgtype.Int4        `json:"service_id"`
+	SalonID        pgtype.Int4        `json:"salon_id"`
+	HairdresserUid pgtype.UUID        `json:"hairdresser_uid"`
+	TargetTime     pgtype.Timestamptz `json:"target_time"`
+}
+
+func (q *Queries) UpdateBookingStatus(ctx context.Context, arg UpdateBookingStatusParams) (Booking, error) {
+	row := q.db.QueryRow(ctx, updateBookingStatus,
+		arg.BookingStatus,
+		arg.ID,
+		arg.Username,
+		arg.ServiceID,
+		arg.SalonID,
+		arg.HairdresserUid,
+		arg.TargetTime,
+	)
+	var i Booking
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.HairdresserID,
+		&i.ServiceID,
+		&i.SalonID,
+		&i.StartsAt,
+		&i.EndsAt,
+		&i.Description,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
