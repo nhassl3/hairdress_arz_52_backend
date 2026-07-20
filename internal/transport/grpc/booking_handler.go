@@ -48,7 +48,6 @@ func (h *BookingHandler) CreateBooking(ctx context.Context, req *bookingv1.Creat
 		Description:   req.Description,
 		StartsAt:      req.StartsAt.AsTime(),
 		EndsAt:        req.EndsAt.AsTime(),
-		Status:        StatusBooking[req.GetStatus()],
 	})
 	if err != nil {
 		return nil, domainErr(err)
@@ -58,7 +57,7 @@ func (h *BookingHandler) CreateBooking(ctx context.Context, req *bookingv1.Creat
 	}, nil
 }
 
-func (h *BookingHandler) GetBooking(ctx context.Context, req *bookingv1.GetBookingRequest) (*bookingv1.GetBookingResponse, error) {
+func (h *BookingHandler) GetBookings(ctx context.Context, req *bookingv1.GetBookingRequest) (*bookingv1.GetBookingResponse, error) {
 	if err := req.Validate(); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -99,6 +98,48 @@ func (h *BookingHandler) GetBooking(ctx context.Context, req *bookingv1.GetBooki
 	}
 	return &bookingv1.GetBookingResponse{
 		Bookings: mBookings,
+	}, nil
+}
+
+func (h *BookingHandler) UpdateBookingStatus(ctx context.Context, req *bookingv1.UpdateBookingStatusRequest) (*bookingv1.UpdateBookingStatusResponse, error) {
+	if err := req.Validate(); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	var (
+		booking *domain.Booking
+		err     error
+		params  = domain.NewUpdateBookingStatusRequest(StatusBooking[req.GetNewStatus()])
+	)
+	switch v := req.GetMethod().(type) {
+	case *bookingv1.UpdateBookingStatusRequest_Id:
+		booking, err = h.svc.UpdateBookingStatus(ctx, params.WithID(&v.Id))
+	case *bookingv1.UpdateBookingStatusRequest_FindByHairdresser:
+		booking, err = h.svc.UpdateBookingStatus(
+			ctx, params.WithHairdresser(v.FindByHairdresser.GetHairdresserId(), v.FindByHairdresser.GetStartsAt().AsTime()))
+	case *bookingv1.UpdateBookingStatusRequest_FindByService:
+		booking, err = h.svc.UpdateBookingStatus(ctx,
+			params.WithService(v.FindByService.GetServiceId(), v.FindByService.GetStartsAt().AsTime()))
+	case *bookingv1.UpdateBookingStatusRequest_FindBySalon:
+		booking, err = h.svc.UpdateBookingStatus(ctx,
+			params.WithSalon(v.FindBySalon.GetSalonId(), v.FindBySalon.GetStartsAt().AsTime()))
+	case *bookingv1.UpdateBookingStatusRequest_FindByUsername:
+		booking, err = h.svc.UpdateBookingStatus(ctx,
+			params.WithUsername(v.FindByUsername.GetUsername(), v.FindByUsername.GetStartsAt().AsTime()))
+	default:
+		return nil, status.Error(codes.Unimplemented, fmt.Sprintf("%T(%v)", v, v))
+	}
+	if err != nil {
+		return nil, domainErr(err)
+	}
+
+	mBooking := mapBooking(booking)
+	if mBooking == nil {
+		return nil, domainErr(domain.ErrNoBookings)
+	}
+
+	return &bookingv1.UpdateBookingStatusResponse{
+		Booking: mBooking,
 	}, nil
 }
 
