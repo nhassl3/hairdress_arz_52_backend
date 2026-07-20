@@ -24,9 +24,17 @@ func (service *BookingService) CreateBooking(ctx context.Context, params *domain
 }
 
 func (service *BookingService) GetBookings(ctx context.Context, params *domain.GetBookingRequest) ([]*domain.Booking, error) {
-	bookings, err := service.bookingRepo.GetBooking(ctx, params)
+	bookings, err := service.bookingRepo.GetBookings(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("booking_service.GetBooking: failed to get bookings: %w", err)
 	}
 	return bookings, nil
+}
+
+func (service *BookingService) UpdateBookingStatus(ctx context.Context, params *domain.UpdateBookingStatusRequest) (*domain.Booking, error) {
+	booking, err := service.bookingRepo.UpdateBookingStatus(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("booking_service.UpdateBookingStatus: failed to patch booking status: %w", err)
+	}
+	return booking, nil
 }
