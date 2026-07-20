@@ -40,18 +40,22 @@ func int2Int4(i *int32) pgtype.Int4 {
 	}
 }
 
-func string2UUID(str string) uuid.UUID {
+func string2UUID(str string) (uuid.UUID, error) {
 	if str == "" {
-		return uuid.Nil
+		return uuid.Nil, nil
 	}
-	return uuid.MustParse(str)
+	return uuid.Parse(str)
 }
 
-func string2PgUUID(str *string) pgtype.UUID {
+func string2PgUUID(str *string) (pgtype.UUID, error) {
 	if str == nil || len(*str) == 0 {
-		return pgtype.UUID{}
+		return pgtype.UUID{}, nil
 	}
-	return pgtype.UUID{Bytes: uuid.MustParse(*str), Valid: true}
+	id, err := uuid.Parse(*str)
+	if err != nil {
+		return pgtype.UUID{}, err
+	}
+	return pgtype.UUID{Bytes: id, Valid: true}, nil
 }
 
 func timeFromTimestampTz(tm pgtype.Timestamptz) time.Time {
