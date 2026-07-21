@@ -31,6 +31,8 @@ func domainErr(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, domain.ErrSmsRateLimited):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, domain.ErrFailedToFindInTheSystem):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, domain.ErrSmsCooldown):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, domain.ErrRedisNotFound):
@@ -45,6 +47,10 @@ func domainErr(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrDeviceMistake):
 		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, domain.ErrNoBookings):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, domain.ErrDataNoProvide):
+		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		return status.Error(codes.Internal, fmt.Sprintf("internal server error: %s", err.Error()))
 	}

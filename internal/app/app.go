@@ -14,7 +14,7 @@ import (
 	"github.com/nhassl3/hairdress_arz/internal/config"
 	"github.com/nhassl3/hairdress_arz/internal/db"
 	"github.com/nhassl3/hairdress_arz/internal/domain"
-	postgresRedis "github.com/nhassl3/hairdress_arz/internal/repository/postgres"
+	postgresRepo "github.com/nhassl3/hairdress_arz/internal/repository/postgres"
 	repoRedis "github.com/nhassl3/hairdress_arz/internal/repository/redis"
 	"github.com/nhassl3/hairdress_arz/internal/service"
 	transportGRPC "github.com/nhassl3/hairdress_arz/internal/transport/grpc"
@@ -133,11 +133,13 @@ func Run(cfg *config.Config) error {
 	}
 
 	// Register repositories
-	authRepo := postgresRedis.NewAuthRepo(store)
+	authRepo := postgresRepo.NewAuthRepository(store)
+	bookingRepo := postgresRepo.NewBookingRepository(store)
 
 	// Register services
 	svcs := &transportGRPC.Services{
-		Auth: service.NewAuthService(authRepo,
+		Auth: service.NewAuthService(
+			authRepo,
 			accessManager,
 			refreshManager,
 			tokenBlacklist,
@@ -145,6 +147,7 @@ func Run(cfg *config.Config) error {
 			verifyImplementsRedis,
 			sender,
 		),
+		Booking: service.NewBookingService(bookingRepo),
 	}
 
 	// make gRPC server

@@ -9,6 +9,7 @@ import (
 	"github.com/nhassl3/hairdress_arz/internal/service"
 	"github.com/nhassl3/hairdress_arz/internal/transport/grpc/interceptors"
 	authv1 "github.com/nhassl3/hairdress_arz_52_contracts/pkg/pb/auth/v1"
+	bookingv1 "github.com/nhassl3/hairdress_arz_52_contracts/pkg/pb/booking/v1"
 	"github.com/nhassl3/servicehub-backend/pkg/auth"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -18,11 +19,13 @@ import (
 )
 
 type Services struct {
-	Auth *service.AuthService
+	Auth    *service.AuthService
+	Booking *service.BookingService
 }
 
 type Handlers struct {
-	Auth *AuthHandler
+	Auth    *AuthHandler
+	Booking *BookingHandler
 }
 
 type Server struct {
@@ -41,7 +44,8 @@ func NewServer(services *Services, tokenManager auth.TokenManager, log *zap.Logg
 	)
 
 	handlers := &Handlers{
-		Auth: NewAuthHandler(services.Auth),
+		Auth:    NewAuthHandler(services.Auth),
+		Booking: NewBookingHandler(services.Booking),
 	}
 
 	registerHandlers(grpcServer, handlers)
@@ -55,6 +59,7 @@ func NewServer(services *Services, tokenManager auth.TokenManager, log *zap.Logg
 // the generated Register<Name>Server here.
 func registerHandlers(srv *grpc.Server, h *Handlers) {
 	authv1.RegisterAuthServiceServer(srv, h.Auth)
+	bookingv1.RegisterBookingServiceServer(srv, h.Booking)
 }
 
 // Start begins accepting gRPC connections on addr (e.g. ":9090").
@@ -96,6 +101,7 @@ func (s *Server) StartGateway(ctx context.Context, grpcAddr, httpAddr string) er
 	// Register every service handler with the gateway mux.
 	for _, fn := range []func(context.Context, *runtime.ServeMux, *grpc.ClientConn) error{
 		authv1.RegisterAuthServiceHandler,
+		bookingv1.RegisterBookingServiceHandler,
 	} {
 		if err := fn(ctx, mux, conn); err != nil {
 			return err
